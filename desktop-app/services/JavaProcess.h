@@ -1,0 +1,1 @@
+// QProcess wrapper to run scraper.exe
