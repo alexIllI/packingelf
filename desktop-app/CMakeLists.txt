@@ -57,7 +57,11 @@ target_link_libraries(packingelf PRIVATE
 #  ─────────────────────────────────────────────────────────────
 #  include all singleton QML files in first line
 #  ─────────────────────────────────────────────────────────────
-set(qml_singletons Theme.qml Constants.qml NavStore.qml)
+set(qml_singletons 
+  ui/Theme.qml 
+  ui/Constants.qml 
+  ui/NavStore.qml
+)
 set_source_files_properties(${qml_singletons} PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 #  ─────────────────────────────────────────────────────────────

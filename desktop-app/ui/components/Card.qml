@@ -1,20 +1,24 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import PackingElf 1.0
 
 Control {
     id: root
-    implicitWidth: 320
-    implicitHeight: 160
-    padding: 0
+    default property alias content: container.data
+    property real cardWidth: 100
+    property real cardHeight: 100
+
+    implicitWidth: cardWidth
+    implicitHeight: cardHeight
+    padding: 10
+
     background: Rectangle {
-        radius: Constants.cardRadius
-        color: Theme.cardColor
-        border.color: Theme.cardBorder
+        radius: 15
+        color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
+        border.color: Theme.borderColor
         border.width: 1
     }
     contentItem: Item {
-        anchors.fill: parent
+        id: container
     }
 }
