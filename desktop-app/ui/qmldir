@@ -6,7 +6,7 @@ Card 1.0 components/Card.qml
 MetricCard 1.0 components/MetricCard.qml
 StatusLight 1.0 components/StatusLight.qml
 NavButton 1.0 components/NavButton.qml
-Sidebar 1.0 components/Sidebar.qml
+ContentPage 1.0 components/ContentPage.qml
 # Singletons
 singleton Constants 1.0 Constants.qml
 singleton Theme 1.0 Theme.qml

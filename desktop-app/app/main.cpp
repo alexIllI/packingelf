@@ -20,15 +20,20 @@ int main(int argc, char **argv)
     // qmlRegisterSingletonInstance("App", 1, 0, "JobsVM", wired.jobs.get());
 
     QQmlApplicationEngine engine;
-    engine.addImportPath("qrc:/");
 
-    // TODO: Create ui/App.qml when ready
-    // const QUrl url(QStringLiteral("qrc:/ui/App.qml"));
-    // engine.load(url);
+    // Load the main QML file
+    const QUrl url(QStringLiteral("qrc:/qt/qml/PackingElf/ui/App.qml"));
 
-    // For now, just run the app without loading QML
-    // if (engine.rootObjects().isEmpty())
-    //     return 1;
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, []()
+                     { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
+
+    engine.load(url);
+
+    if (engine.rootObjects().isEmpty())
+    {
+        qWarning() << "Failed to load QML";
+        return -1;
+    }
 
     return app.exec();
 }

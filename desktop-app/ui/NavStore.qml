@@ -1,16 +1,16 @@
+// stores/NavStore.qml
 pragma Singleton
 import QtQuick
 
 QtObject {
-    // Page "enum" (property names must start with lowercase)
-    readonly property var page: ({
-            Home: 0,
-            Printing: 1,
-            History: 2,
-            Setting: 3,
-            Profile: 4
-        })
+    id: nav
+    property string route: "Home" // default landing page
+    signal navigate(string route)
 
-    // current page (default to Home)
-    property int currentPage: page.Home
+    function go(r) {
+        if (r !== route) {
+            route = r;
+            navigate(r);
+        }
+    }
 }

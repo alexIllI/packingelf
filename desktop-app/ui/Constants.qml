@@ -16,13 +16,16 @@ QtObject {
 
     readonly property int width: 1080
     readonly property int height: 800
-    readonly property int page_width: 980
-    readonly property int page_height: 790
+    readonly property int pageWidth: 980
+    readonly property int pageHeight: 790
 
     // Opacity
     readonly property real basicOpacity: 0.08
+    readonly property real checkedOpacity: 0.12
+    readonly property real hoverOpacity: 0.06
 
     readonly property int pageMargin: 10
+    readonly property int pagePadding: 10
     readonly property int pageGap: 20
     readonly property int contentGap: 10
 

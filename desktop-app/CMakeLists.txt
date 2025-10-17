@@ -77,11 +77,14 @@ qt_add_qml_module(packingelf
   QML_FILES
     ui/App.qml
     ui/views/MainScreen.qml
+    ui/views/HomePage.qml
     ui/components/Card.qml
     ui/components/MetricCard.qml
     ui/components/StatusLight.qml
     ui/components/NavButton.qml
-    ui/components/Sidebar.qml
+    ui/components/ContentPage.qml
+
+    # Singletons
     ui/Constants.qml
     ui/Theme.qml
     ui/NavStore.qml
@@ -102,6 +105,34 @@ qt_add_qml_module(packingelf
     ui/assets/images/pending.svg
 )
 
+# Post-build: deploy Qt dependencies (DLLs, QML modules, translations)
+# This runs windeployqt automatically after every build
+find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${Qt6_DIR}/../../../bin")
+if(WINDEPLOYQT_EXECUTABLE)
+  # For Debug builds: deploy everything (easier development)
+  # For Release builds: minimal deployment (smaller distribution size)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(DEPLOY_ARGS
+      --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/ui"
+      "$<TARGET_FILE:packingelf>"
+    )
+  else()
+    set(DEPLOY_ARGS
+      --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/ui"
+      --no-translations          # Skip 30+ translation files
+      --no-system-d3d-compiler   # Skip D3D compiler (usually not needed)
+      --no-opengl-sw             # Skip software OpenGL renderer
+      "$<TARGET_FILE:packingelf>"
+    )
+  endif()
+  
+  add_custom_command(TARGET packingelf POST_BUILD
+    COMMAND "${WINDEPLOYQT_EXECUTABLE}" ${DEPLOY_ARGS}
+    COMMENT "Running windeployqt (${CMAKE_BUILD_TYPE} mode)"
+  )
+else()
+  message(WARNING "windeployqt not found. You'll need to manually deploy Qt DLLs.")
+endif()
 
 # (Optional) SCXML compile
 # qt6_add_statecharts(packingelf state/Lifecycle.scxml)

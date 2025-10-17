@@ -17,10 +17,10 @@ Item {
     property bool hostDbOnline: true
     property bool localDbOnline: true
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.backgroundColor // colors from Theme
-    }
+    // background: Rectangle {
+    //     anchors.fill: parent
+    //     color: Theme.backgroundColor // colors from Theme
+    // }
 
     ColumnLayout {
         id: homeMainLayout
@@ -37,7 +37,7 @@ Item {
             spacing: 10
             Text {
                 id: homeHeader1
-                color: Constants.header1Color
+                color: Theme.header1Color
                 text: qsTr("首頁")
                 font.pixelSize: Constants.header1FontSize
                 font.bold: true
@@ -45,12 +45,11 @@ Item {
 
             Text {
                 id: homeHeaderSub
-                color: Constants.headerSubColor
+                color: Theme.headerSubColor
                 text: qsTr("檢視包貨小精靈狀態")
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
                 anchors.leftMargin: 3
-                anchors.bottomMargin: 0
                 font.pixelSize: Constants.header3FontSize
             }
 
