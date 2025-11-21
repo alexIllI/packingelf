@@ -1,0 +1,7 @@
+# build
+desktop-app/build/
+*.vcxproj*
+.github/
+.vscode/
+.qtcreator/
+scripts/

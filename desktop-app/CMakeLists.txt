@@ -83,6 +83,7 @@ qt_add_qml_module(packingelf
     ui/components/StatusLight.qml
     ui/components/NavButton.qml
     ui/components/ContentPage.qml
+    ui/components/CustomDropdown.qml
 
     # Singletons
     ui/Constants.qml

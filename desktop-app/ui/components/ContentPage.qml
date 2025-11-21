@@ -18,7 +18,7 @@ Control {
     implicitWidth: Constants.pageWidth
     implicitHeight: Constants.pageHeight
     background: Rectangle {
-        color: Theme.primaryColor
+        color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
     }
 
     contentItem: ColumnLayout {

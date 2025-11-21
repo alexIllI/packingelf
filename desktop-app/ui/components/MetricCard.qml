@@ -5,6 +5,7 @@ This componet is for home page and includes:
 - Unit: header3
 - icon: provide only name to icon
 */
+pragma ComponentBehavior: Bound
 
 // MetricCard.qml
 import QtQuick

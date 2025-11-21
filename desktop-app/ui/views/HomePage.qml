@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import PackingElf 1.0
 
-Item {
+ContentPage {
     id: homeView
     anchors.fill: parent
 
@@ -17,44 +17,13 @@ Item {
     property bool hostDbOnline: true
     property bool localDbOnline: true
 
-    // background: Rectangle {
-    //     anchors.fill: parent
-    //     color: Theme.backgroundColor // colors from Theme
-    // }
+    title: qsTr("首頁")
+    subtitle: qsTr("檢視包貨小精靈狀態")
 
     ColumnLayout {
         id: homeMainLayout
         anchors.fill: parent
-        anchors.margins: Constants.pageMargin
         spacing: Constants.pageGap
-
-        Column {
-            id: titleLayout
-            Layout.bottomMargin: 40
-            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-            Layout.topMargin: 50
-            Layout.fillWidth: true
-            spacing: 10
-            Text {
-                id: homeHeader1
-                color: Theme.header1Color
-                text: qsTr("首頁")
-                font.pixelSize: Constants.header1FontSize
-                font.bold: true
-            }
-
-            Text {
-                id: homeHeaderSub
-                color: Theme.headerSubColor
-                text: qsTr("檢視包貨小精靈狀態")
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-                anchors.leftMargin: 3
-                font.pixelSize: Constants.header3FontSize
-            }
-
-            Layout.preferredHeight: 70
-        }
 
         // ─────────────────────────────────────────────────────────────
         // Dashboard Layout
@@ -62,65 +31,50 @@ Item {
         RowLayout {
             id: dashboardLayout
             spacing: Constants.pageGap // 20
-            Rectangle {
+            Card {
                 id: orderPanel
-                color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
-                radius: 15
-                border.color: Constants.borderColor
-                border.width: 1
                 Layout.minimumHeight: 135
                 Layout.fillWidth: true
                 RowLayout {
                     id: orderFrame
-                    visible: true
                     anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 10
+                    anchors.margins: 10
                     uniformCellSizes: true
                     MetricCard {
                         title: "全部貨單數量"
-                        value: totalOrders
+                        displayValue: homeView.totalOrders
                         unit: "件"
-                        iconSource: "images/total_orders.svg"
+                        iconSource: "../assets/images/total_orders.svg"
                     }
                     MetricCard {
                         title: "標記貨單數量"
-                        value: pendingOrders
+                        displayValue: homeView.pendingOrders
                         unit: "件"
-                        iconSource: "images/pending.svg"
+                        iconSource: "../assets/images/pending.svg"
                     }
                     MetricCard {
                         title: "今日貨單數量"
-                        value: todayProcessed
+                        displayValue: homeView.todayProcessed
                         unit: "件"
-                        iconSource: "images/record.svg"
+                        iconSource: "../assets/images/record.svg"
                     }
                 }
             }
-            Rectangle {
+            Card {
                 id: statusPanel
-                color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
-                radius: 15
-                border.color: Constants.borderColor
-                border.width: 1
                 Layout.minimumHeight: 135
-                Layout.fillWidth: true
+                Layout.minimumWidth: 250
                 RowLayout {
                     id: statusFrame
                     visible: true
                     anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 10
+                    anchors.margins: 10
                     uniformCellSizes: true
                     MetricCard {
                         title: "錯誤"
-                        value: errorJobs
+                        displayValue: homeView.errorJobs
                         unit: "件"
-                        iconSource: "images/total_orders.svg"
+                        iconSource: "../assets/images/total_orders.svg"
                     }
                 }
             }
@@ -136,12 +90,9 @@ Item {
             Layout.minimumHeight: 400
             Layout.fillWidth: true
             spacing: 20
-            Rectangle {
+            Card {
                 id: appStatusPanel
                 width: 200
-                color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
-                radius: 15
-                border.color: Constants.borderColor
                 Layout.preferredWidth: 300
                 Layout.minimumWidth: 300
                 Layout.fillHeight: true
@@ -150,14 +101,11 @@ Item {
                 ColumnLayout {
                     id: appStatusFrame
                     anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 10
+                    anchors.margins: 10
                     spacing: 5
                     Text {
                         id: home_AppStatusHeader2
-                        color: Constants.header2Color
+                        color: Theme.header2Color
                         text: qsTr("包貨小精靈狀態")
                         font.pixelSize: Constants.header2FontSize
                         Layout.bottomMargin: 10
@@ -166,7 +114,7 @@ Item {
 
                     Text {
                         id: home_AppStatusHeader3
-                        color: Constants.header2Color
+                        color: Theme.header2Color
                         text: qsTr("工作階段:")
                         font.pixelSize: Constants.header3FontSize
                     }
@@ -186,7 +134,7 @@ Item {
 
                         Text {
                             id: home_StatusDescriptionHeader3
-                            color: Constants.header2Color
+                            color: Theme.header2Color
                             text: qsTr("正在連線到買動漫")
                             font.pixelSize: Constants.header3FontSize
                             Layout.minimumWidth: 100
@@ -208,7 +156,7 @@ Item {
 
                     Text {
                         id: home_AppProgressHeader3
-                        color: Constants.header2Color
+                        color: Theme.header2Color
                         text: qsTr("70 %")
                         font.pixelSize: Constants.header3FontSize
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -218,7 +166,7 @@ Item {
 
                     Text {
                         id: home_ConsoleOutputHeader3
-                        color: Constants.header3Color
+                        color: Theme.header3Color
                         text: qsTr("Console Output:")
                         font.pixelSize: Constants.header3FontSize
                     }
@@ -229,7 +177,6 @@ Item {
                         CustomDropdown {
                             id: home_ConsoleDropdown
                             Layout.preferredHeight: 30
-                            selected: "全部"
                         }
 
                         Button {
@@ -256,12 +203,9 @@ Item {
                 }
             }
 
-            Rectangle {
+            Card {
                 id: webControlPanel
                 width: 200
-                color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
-                radius: 15
-                border.color: Constants.borderColor
                 Layout.minimumWidth: 250
                 Layout.fillHeight: true
 
@@ -275,7 +219,7 @@ Item {
                     spacing: 10
                     Text {
                         id: home_WebControlHeader2
-                        color: Constants.header2Color
+                        color: Theme.header2Color
                         text: qsTr("網頁控制")
                         font.pixelSize: Constants.header2FontSize
                         Layout.bottomMargin: 10
@@ -288,14 +232,14 @@ Item {
                         id: webStatusFrame
                         Text {
                             id: home_MyacgStatusHeader3
-                            color: Constants.header3Color
+                            color: Theme.header3Color
                             text: qsTr("目前狀態:")
                             font.pixelSize: Constants.header3FontSize
                         }
 
                         Rectangle {
                             id: home_WebIndicator
-                            color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
                             radius: 15
                             Layout.minimumHeight: 25
                             Layout.minimumWidth: 70
@@ -308,7 +252,7 @@ Item {
                                 anchors.bottomMargin: 0
                                 Rectangle {
                                     id: home_MyacgIndicator
-                                    color: Constants.goodColor
+                                    color: Theme.goodColor
                                     radius: 5
                                     Layout.preferredWidth: 10
                                     Layout.preferredHeight: 10
@@ -317,7 +261,7 @@ Item {
 
                                 Text {
                                     id: home_MyacgCurStatusHeader3
-                                    color: Constants.header3Color
+                                    color: Theme.header3Color
                                     text: qsTr("online")
                                     font.pixelSize: Constants.header3FontSize
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -328,14 +272,14 @@ Item {
 
                     Text {
                         id: home_WebExcutingHeader3
-                        color: Constants.header3Color
+                        color: Theme.header3Color
                         text: qsTr("目前執行:")
                         font.pixelSize: Constants.header3FontSize
                     }
 
                     Text {
                         id: home_WebExcutedCommandHeader3
-                        color: Constants.header3Color
+                        color: Theme.header3Color
                         text: qsTr("搜尋貨單...")
                         font.pixelSize: Constants.header3FontSize
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -370,7 +314,7 @@ Item {
                         Layout.fillWidth: true
                         Text {
                             id: home_QueuedTaskHeader3
-                            color: Constants.header3Color
+                            color: Theme.header3Color
                             text: qsTr("佇列中的工作:")
                             font.pixelSize: Constants.header3FontSize
                         }
@@ -384,7 +328,7 @@ Item {
 
                     Text {
                         id: home_TaskListHeader3
-                        color: Constants.header3Color
+                        color: Theme.header3Color
                         text: qsTr("列印 PG01234567")
                         font.pixelSize: Constants.header3FontSize
                         Layout.fillHeight: true
@@ -392,12 +336,9 @@ Item {
                     }
                 }
             }
-            Rectangle {
+            Card {
                 id: hostDBPanel
                 width: 200
-                color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
-                radius: 15
-                border.color: Constants.borderColor
                 Layout.minimumWidth: 250
                 Layout.fillHeight: true
 
@@ -410,7 +351,7 @@ Item {
                     anchors.bottomMargin: 10
                     Text {
                         id: home_DBStatusHeader2
-                        color: Constants.header2Color
+                        color: Theme.header2Color
                         text: qsTr("資料庫狀態")
                         font.pixelSize: Constants.header2FontSize
                         Layout.bottomMargin: 10
@@ -421,14 +362,14 @@ Item {
                         id: hostDBStatusFrame
                         Text {
                             id: home_HostDBStatus_Header3
-                            color: Constants.header3Color
+                            color: Theme.header3Color
                             text: qsTr("遠端資料庫連線狀態:")
                             font.pixelSize: Constants.header3FontSize
                         }
 
                         Rectangle {
                             id: home_WebIndicator1
-                            color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
                             radius: 15
                             RowLayout {
                                 id: rowLayout1
@@ -439,7 +380,7 @@ Item {
                                 anchors.bottomMargin: 0
                                 Rectangle {
                                     id: hostdbIndicator1
-                                    color: Constants.goodColor
+                                    color: Theme.goodColor
                                     radius: 5
                                     Layout.preferredWidth: 10
                                     Layout.preferredHeight: 10
@@ -448,7 +389,7 @@ Item {
 
                                 Text {
                                     id: hostdbstatus
-                                    color: Constants.header3Color
+                                    color: Theme.header3Color
                                     text: qsTr("online")
                                     font.pixelSize: Constants.header3FontSize
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -484,14 +425,14 @@ Item {
                         id: localDBStatusFrame
                         Text {
                             id: home_LocalDBStatus_Header3
-                            color: Constants.header3Color
+                            color: Theme.header3Color
                             text: qsTr("本地資料庫連線狀態:")
                             font.pixelSize: Constants.header3FontSize
                         }
 
                         Rectangle {
                             id: home_WebIndicator2
-                            color: Qt.rgba(Constants.primaryColor.r, Constants.primaryColor.g, Constants.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
                             radius: 15
                             RowLayout {
                                 id: rowLayout2
@@ -502,7 +443,7 @@ Item {
                                 anchors.bottomMargin: 0
                                 Rectangle {
                                     id: hostdbIndicator2
-                                    color: Constants.goodColor
+                                    color: Theme.goodColor
                                     radius: 5
                                     Layout.preferredWidth: 10
                                     Layout.preferredHeight: 10
@@ -511,7 +452,7 @@ Item {
 
                                 Text {
                                     id: hostdbstatus1
-                                    color: Constants.header3Color
+                                    color: Theme.header3Color
                                     text: qsTr("online")
                                     font.pixelSize: Constants.header3FontSize
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -548,7 +489,7 @@ Item {
                         spacing: 5
                         Text {
                             id: home_QueuedTaskHeader4
-                            color: Constants.header3Color
+                            color: Theme.header3Color
                             text: qsTr("佇列中的工作:")
                             font.pixelSize: Constants.header3FontSize
                         }
@@ -565,7 +506,7 @@ Item {
 
                     Text {
                         id: home_DBConsoleHeader3
-                        color: Constants.header3Color
+                        color: Theme.header3Color
                         text: qsTr("POST:")
                         font.pixelSize: Constants.header3FontSize
                         Layout.minimumHeight: 50
