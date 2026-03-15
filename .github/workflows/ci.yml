@@ -1,0 +1,45 @@
+name: CI – Desktop App Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtshadertools
+
+      - name: Configure
+        working-directory: desktop-app
+        run: cmake --preset ci
+
+      - name: Build
+        working-directory: desktop-app
+        run: |
+          $output = cmake --build --preset ci 2>&1
+          $lines = $output -split "`n"
+          if ($lines.Count -gt 100) {
+            Write-Host "... ($($lines.Count - 100) lines truncated) ..."
+            $lines[-100..-1] | ForEach-Object { Write-Host $_ }
+          } else {
+            $output | Write-Host
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

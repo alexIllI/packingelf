@@ -86,7 +86,7 @@ Control {
 
     // ========= Visuals =========
     // Colors from Theme; tweak to your palette
-    readonly property color bgColor: !enabled ? Theme.surfaceDisabled : hovered ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08) : Theme.surface
+    readonly property color bgColor: !enabled ? Theme.surfaceDisabled : hovered ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity) : Theme.surface
     readonly property color borderColor: focus ? Theme.primaryColor : Theme.borderColor
     readonly property color textColor: (currentIndex >= 0) ? Theme.header3Color : Theme.headerSubColor
 
@@ -180,7 +180,7 @@ Control {
 
                 width: ListView.view.width
                 height: root.delegateHeight
-                text: Array.isArray(root.model) ? String(model) : (model[root.textRole] ?? model.display ?? model.name ?? model.title ?? "")
+                text: Array.isArray(root.model) ? String(model.modelData) : (model[root.textRole] ?? model.display ?? model.name ?? model.title ?? "")
                 highlighted: ListView.isCurrentItem
                 onClicked: root.delegateSelect(index)
                 // theming
