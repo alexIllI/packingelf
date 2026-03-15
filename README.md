@@ -25,7 +25,7 @@ cmake --build --preset msvc-release
 
 ```bash
 # After debug build
-.\build\msvc-debug\packingelf.exe
+.\build\msvc-debug\Debug\packingelf.exe
 
 # After release build
 .\build\msvc-release\packingelf.exe

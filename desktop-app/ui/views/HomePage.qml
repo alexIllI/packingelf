@@ -123,9 +123,10 @@ ContentPage {
                         id: descriptionFrame
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                         Layout.maximumHeight: 30
-                        BusyIndicator {
+                        CustomBusyIndicator {
                             id: home_AppBusyIndicator
                             visible: true
+                            running: true
                             Layout.minimumHeight: 30
                             Layout.minimumWidth: 30
                             Layout.preferredHeight: 30
@@ -144,7 +145,7 @@ ContentPage {
                         }
                     }
 
-                    ProgressBar {
+                    CustomProgressBar {
                         id: home_AppProgressBar
                         value: 0.7
                         Layout.minimumHeight: 15
@@ -157,7 +158,7 @@ ContentPage {
                     Text {
                         id: home_AppProgressHeader3
                         color: Theme.header2Color
-                        text: qsTr("70 %")
+                        text: Math.round(home_AppProgressBar.value * 100) + " %"
                         font.pixelSize: Constants.header3FontSize
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                         Layout.preferredWidth: 35
@@ -176,17 +177,17 @@ ContentPage {
                         Layout.fillWidth: true
                         CustomDropdown {
                             id: home_ConsoleDropdown
-                            Layout.preferredHeight: 30
+                            Layout.preferredHeight: 40
                         }
 
-                        Button {
+                        CustomButton {
                             id: home_ClearConsoleButton
                             text: qsTr("清除")
                             Layout.preferredHeight: 40
                             Layout.minimumHeight: 40
                         }
 
-                        Button {
+                        CustomButton {
                             id: home_OpenLogButton
                             text: qsTr("開啟日誌位置")
                             Layout.preferredHeight: 40
@@ -239,7 +240,7 @@ ContentPage {
 
                         Rectangle {
                             id: home_WebIndicator
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
                             radius: 15
                             Layout.minimumHeight: 25
                             Layout.minimumWidth: 70
@@ -288,7 +289,7 @@ ContentPage {
                     RowLayout {
                         id: webControlButtonFrame
                         Layout.fillWidth: true
-                        Button {
+                        CustomButton {
                             id: home_WebRestartButton
                             text: qsTr("重新啟動")
                             Layout.fillWidth: true
@@ -296,7 +297,7 @@ ContentPage {
                             Layout.minimumWidth: 85
                         }
 
-                        Button {
+                        CustomButton {
                             id: home_WebCalibrateButton
                             text: qsTr("校正")
                             Layout.fillWidth: true
@@ -319,7 +320,7 @@ ContentPage {
                             font.pixelSize: Constants.header3FontSize
                         }
 
-                        CheckBox {
+                        CustomCheckBox {
                             id: home_ShowWebOutputCheckBox
                             text: qsTr("顯示")
                             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
@@ -369,7 +370,7 @@ ContentPage {
 
                         Rectangle {
                             id: home_WebIndicator1
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
                             radius: 15
                             RowLayout {
                                 id: rowLayout1
@@ -402,7 +403,7 @@ ContentPage {
 
                     RowLayout {
                         id: hostDBButtonFrame
-                        Button {
+                        CustomButton {
                             id: home_HostDBTestButton
                             text: qsTr("測試連線")
                             Layout.minimumWidth: 85
@@ -410,13 +411,13 @@ ContentPage {
                             Layout.fillWidth: true
                         }
 
-                        Button {
+                        CustomButton {
                             id: home_HostDBReconnectButton
                             text: qsTr("重新連線")
+                            highlighted: true
                             Layout.minimumWidth: 85
                             Layout.minimumHeight: 35
                             Layout.fillWidth: true
-                            Layout.fillHeight: false
                         }
                         Layout.fillWidth: true
                     }
@@ -432,7 +433,7 @@ ContentPage {
 
                         Rectangle {
                             id: home_WebIndicator2
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
                             radius: 15
                             RowLayout {
                                 id: rowLayout2
@@ -465,7 +466,7 @@ ContentPage {
 
                     RowLayout {
                         id: localDBButtonFrame
-                        Button {
+                        CustomButton {
                             id: home_LocalDBTestButton
                             text: qsTr("測試連線")
                             Layout.minimumWidth: 85
@@ -473,13 +474,13 @@ ContentPage {
                             Layout.fillWidth: true
                         }
 
-                        Button {
+                        CustomButton {
                             id: home_LocalDBReconnectButton
                             text: qsTr("重新連線")
+                            highlighted: true
                             Layout.minimumWidth: 85
                             Layout.minimumHeight: 35
                             Layout.fillWidth: true
-                            Layout.fillHeight: false
                         }
                         Layout.fillWidth: true
                     }
@@ -494,7 +495,7 @@ ContentPage {
                             font.pixelSize: Constants.header3FontSize
                         }
 
-                        CheckBox {
+                        CustomCheckBox {
                             id: home_ShowDBOoutputCheckBox
                             text: qsTr("顯示")
                             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
@@ -514,7 +515,7 @@ ContentPage {
                         Layout.fillWidth: true
                     }
 
-                    Button {
+                    CustomButton {
                         id: home_DBSettingButton
                         text: "更改資料庫設定"
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter

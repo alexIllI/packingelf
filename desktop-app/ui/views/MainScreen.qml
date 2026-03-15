@@ -114,39 +114,42 @@ RowLayout {
         // Lazy-load each page only when selected
         Loader {
             asynchronous: true
-            active: pages.currentIndex === 0
+            active: true
+            visible: pages.currentIndex === 0
             source: "HomePage.qml"
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
-        // TODO: Implement lazy loading for other pages
-        // Loader {
-        //     asynchronous: true
-        //     active: pages.currentIndex === 1
-        //     source: "pages/PrintingPage.qml"
-        //     Layout.fillWidth: true
-        //     Layout.fillHeight: true
-        // }
-        // Loader {
-        //     asynchronous: true
-        //     active: pages.currentIndex === 2
-        //     source: "pages/HistoryPage.qml"
-        //     Layout.fillWidth: true
-        //     Layout.fillHeight: true
-        // }
-        // Loader {
-        //     asynchronous: true
-        //     active: pages.currentIndex === 3
-        //     source: "pages/SettingsPage.qml"
-        //     Layout.fillWidth: true
-        //     Layout.fillHeight: true
-        // }
+        Loader {
+            asynchronous: true
+            active: true
+            visible: pages.currentIndex === 1
+            source: "PrintingPage.qml"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+        Loader {
+            asynchronous: true
+            active: true
+            visible: pages.currentIndex === 2
+            source: "HistoryPage.qml"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
+        Loader {
+            asynchronous: true
+            active: true
+            visible: pages.currentIndex === 3
+            source: "SettingPage.qml"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+        }
 
         // TODO: Profile page
         // Loader {
         //     asynchronous: true
         //     active: pages.currentIndex === 4
-        //     source: "pages/ProfilePage.qml"
+        //     source: "ProfilePage.qml"
         //     Layout.fillWidth: true
         //     Layout.fillHeight: true
         // }

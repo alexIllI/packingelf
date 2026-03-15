@@ -23,6 +23,17 @@
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.10/6.10.0/msvc2022_64"
       }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI (GitHub Actions)",
+      "description": "CI build using Ninja and Qt from environment",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{Qt6_DIR}"
+      }
     }
   ],
   "buildPresets": [
@@ -37,6 +48,11 @@
       "configurePreset": "msvc-release",
       "displayName": "Build Release",
       "configuration": "Release"
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "displayName": "Build CI"
     }
   ]
 }

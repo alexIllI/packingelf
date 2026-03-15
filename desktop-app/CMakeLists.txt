@@ -78,12 +78,22 @@ qt_add_qml_module(packingelf
     ui/App.qml
     ui/views/MainScreen.qml
     ui/views/HomePage.qml
+    ui/views/SettingPage.qml
+    ui/views/PrintingPage.qml
+    ui/views/HistoryPage.qml
     ui/components/Card.qml
     ui/components/MetricCard.qml
     ui/components/StatusLight.qml
     ui/components/NavButton.qml
     ui/components/ContentPage.qml
     ui/components/CustomDropdown.qml
+    ui/components/CustomCheckBox.qml
+    ui/components/CustomEntry.qml
+    ui/components/CustomButton.qml
+    ui/components/CustomTable.qml
+    ui/components/CustomSpinBox.qml
+    ui/components/CustomProgressBar.qml
+    ui/components/CustomBusyIndicator.qml
 
     # Singletons
     ui/Constants.qml
