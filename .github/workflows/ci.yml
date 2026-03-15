@@ -15,6 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -30,4 +33,13 @@ jobs:
 
       - name: Build
         working-directory: desktop-app
-        run: cmake --build --preset ci
+        run: |
+          $output = cmake --build --preset ci 2>&1
+          $lines = $output -split "`n"
+          if ($lines.Count -gt 100) {
+            Write-Host "... ($($lines.Count - 100) lines truncated) ..."
+            $lines[-100..-1] | ForEach-Object { Write-Host $_ }
+          } else {
+            $output | Write-Host
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
