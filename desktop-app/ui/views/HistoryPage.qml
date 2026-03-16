@@ -119,14 +119,48 @@ ContentPage {
             }
         }
 
-        Rectangle {
-            id: tmptable
-            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
-            border.color: Theme.borderColor
-            Layout.fillHeight: true
-            Layout.alignment: Qt.AlignLeft | Qt.AlignTop
-            Layout.minimumHeight: 200
+        CustomTable {
+            id: historyTable
             Layout.fillWidth: true
+            Layout.fillHeight: true
+            columns: [
+                {
+                    title: "日期",
+                    role: "date",
+                    width: 0.15
+                },
+                {
+                    title: "貨單號碼",
+                    role: "orderNumber",
+                    width: 0.3
+                },
+                {
+                    title: "發票號碼",
+                    role: "invoiceNumber",
+                    width: 0.2
+                },
+                {
+                    title: "帳號名稱",
+                    role: "accountName",
+                    width: 0.15
+                },
+                {
+                    title: "出貨狀態",
+                    role: "status",
+                    width: 0.1
+                },
+                {
+                    title: "優惠券",
+                    role: "usingCoupon",
+                    width: 0.1
+                }
+            ]
+
+            model: OrdersVM
+
+            onRowClicked: index => {
+                console.log("Selected row:", index);
+            }
         }
 
         RowLayout {

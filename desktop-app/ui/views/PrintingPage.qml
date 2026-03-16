@@ -118,6 +118,21 @@ ContentPage {
                             id: printButton
                             text: qsTr("列印")
                             highlighted: true
+                            onClicked: {
+                                var prefix = prefixDropdown.currentText || "PG024";
+                                var fullOrderNumber = prefix + orderNumberInput.text;
+                                var invoice = invoiceNumberInput.text;
+                                if (orderNumberInput.text.length === 0 || invoice.length === 0) {
+                                    console.warn("Please fill in order number and invoice number");
+                                    return;
+                                }
+                                var id = OrdersVM.createOrder(fullOrderNumber, invoice);
+                                if (id.length > 0) {
+                                    console.log("Order created:", id);
+                                    orderNumberInput.text = "";
+                                    invoiceNumberInput.text = "";
+                                }
+                            }
                         }
                     }
 
@@ -169,129 +184,7 @@ ContentPage {
                         }
                     }
 
-                    ListModel {
-                        id: printedOrderModel
-                        ListElement {
-                            date: "2026/03/13"
-                            orderNumber: "PG02491384"
-                            invoiceNumber: "AB1234567"
-                            accountName: "王小明"
-                            status: "success"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/03/12"
-                            orderNumber: "PG02458271"
-                            invoiceNumber: "CD9876543"
-                            accountName: "李大華"
-                            status: "close"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/11"
-                            orderNumber: "PG02430592"
-                            invoiceNumber: "EF5678901"
-                            accountName: "張美玲"
-                            status: "return"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/03/10"
-                            orderNumber: "PG02417846"
-                            invoiceNumber: "GH2345678"
-                            accountName: "陳志偉"
-                            status: "success"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/09"
-                            orderNumber: "PG02463019"
-                            invoiceNumber: "IJ8901234"
-                            accountName: "林淑芬"
-                            status: "success"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/03/08"
-                            orderNumber: "PG02475230"
-                            invoiceNumber: "KL3456789"
-                            accountName: "黃建國"
-                            status: "close"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/07"
-                            orderNumber: "PG02488412"
-                            invoiceNumber: "MN0123456"
-                            accountName: "吳雅婷"
-                            status: "success"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/06"
-                            orderNumber: "PG02442687"
-                            invoiceNumber: "OP6789012"
-                            accountName: "趙國強"
-                            status: "return"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/03/05"
-                            orderNumber: "PG02451093"
-                            invoiceNumber: "QR4567890"
-                            accountName: "周家豪"
-                            status: "success"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/04"
-                            orderNumber: "PG02429758"
-                            invoiceNumber: "ST1234098"
-                            accountName: "許雅琪"
-                            status: "close"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/03/03"
-                            orderNumber: "PG02486321"
-                            invoiceNumber: "UV7890123"
-                            accountName: "鄭明哲"
-                            status: "success"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/02"
-                            orderNumber: "PG02413574"
-                            invoiceNumber: "WX3456012"
-                            accountName: "蔡佳蓉"
-                            status: "return"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/03/01"
-                            orderNumber: "PG02467890"
-                            invoiceNumber: "YZ8901567"
-                            accountName: "劉冠廷"
-                            status: "success"
-                            usingCoupon: "yes"
-                        }
-                        ListElement {
-                            date: "2026/02/28"
-                            orderNumber: "PG02424156"
-                            invoiceNumber: "AC2345891"
-                            accountName: "楊詩涵"
-                            status: "close"
-                            usingCoupon: "no"
-                        }
-                        ListElement {
-                            date: "2026/02/27"
-                            orderNumber: "PG02495043"
-                            invoiceNumber: "BD6780345"
-                            accountName: "謝宗翰"
-                            status: "success"
-                            usingCoupon: "yes"
-                        }
-                    }
+                    // Model is provided by OrdersVM (C++ context property)
 
                     CustomTable {
                         Layout.fillWidth: true
@@ -329,7 +222,7 @@ ContentPage {
                             }
                         ]
 
-                        model: printedOrderModel
+                        model: OrdersVM
 
                         onRowClicked: index => {
                             console.log("Selected row:", index);
@@ -351,6 +244,13 @@ ContentPage {
                             text: qsTr("刪除")
                             Layout.preferredWidth: 93
                             Layout.preferredHeight: 41
+                            onClicked: {
+                                // Use the CustomTable's currentIndex
+                                var table = deletePrintedButton.parent.parent.children[3]; // the CustomTable
+                                // For now just remove by currentIndex if set
+                                // TODO: get proper selected index from table
+                                console.log("Delete clicked");
+                            }
                         }
                     }
                 }
@@ -441,12 +341,31 @@ ContentPage {
                             Layout.fillWidth: true
                         }
                     }
-                    Rectangle {
+                    CustomTable {
                         id: pendingTableTemp
-                        color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
-                        border.color: Theme.borderColor
                         Layout.fillHeight: true
                         Layout.fillWidth: true
+                        columns: [
+                            {
+                                title: "日期",
+                                role: "date",
+                                width: 0.15
+                            },
+                            {
+                                title: "貨單號碼",
+                                role: "orderNumber",
+                                width: 0.3
+                            },
+                            {
+                                title: "備註",
+                                role: "remark",
+                                width: 0.55
+                            }
+                        ]
+
+                        onRowClicked: index => {
+                            console.log("Selected row:", index);
+                        }
                     }
 
                     CustomButton {

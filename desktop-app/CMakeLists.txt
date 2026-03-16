@@ -25,7 +25,7 @@ set(CMAKE_AUTOUIC ON)
 # Enable QML language server support for better IDE integration
 set(QT_QML_GENERATE_QMLLS_INI ON CACHE BOOL "Generate qmlls.ini for QML language server" FORCE)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql)
 
 #  ─────────────────────────────────────────────────────────────
 #  Silence Qt policy warnings with sensible defaults
@@ -38,20 +38,16 @@ qt_policy(SET QTP0004 OLD)  # allow extra subdirs without per-dir qmldir files
 #  ─────────────────────────────────────────────────────────────
 add_executable(packingelf
   app/main.cpp
-  app/AppConfig.cpp
   app/wiring.cpp
-  # services/HostClient.cpp
-  # services/JavaProcess.cpp
-  # services/OutboxStore.cpp
-  # services/UpdaterService.cpp
-  viewmodels/NavigationViewModel.cpp
+  data/Database.cpp
+  data/OrdersRepository.cpp
+  viewmodels/OrdersViewModel.cpp
   viewmodels/DashboardViewModel.cpp
-  viewmodels/JobsViewModel.cpp
 )
 
-target_include_directories(packingelf PRIVATE app services viewmodels state)
+target_include_directories(packingelf PRIVATE app data services viewmodels state)
 target_link_libraries(packingelf PRIVATE
-  Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2
+  Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Sql
 )
 
 #  ─────────────────────────────────────────────────────────────

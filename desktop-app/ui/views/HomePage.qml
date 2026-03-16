@@ -7,15 +7,13 @@ ContentPage {
     id: homeView
     anchors.fill: parent
 
-    // connect these to your ViewModels later
-    // e.g., via property var dashboardVM: DashboardVM
-    // for now use placeholders matching your original UI:
-    property int totalOrders: 4696
-    property int pendingOrders: 17
-    property int todayProcessed: 312
-    property int errorJobs: 5
-    property bool hostDbOnline: true
-    property bool localDbOnline: true
+    // ─── Bind to DashboardVM (exposed as context property from C++) ───
+    property int totalOrders: DashboardVM.totalOrders
+    property int pendingOrders: DashboardVM.pendingOrders
+    property int todayProcessed: DashboardVM.todayProcessed
+    property int errorJobs: DashboardVM.errorCount
+    property bool hostDbOnline: true        // Phase 2: host-service status
+    property bool localDbOnline: DashboardVM.localDbOnline
 
     title: qsTr("首頁")
     subtitle: qsTr("檢視包貨小精靈狀態")
