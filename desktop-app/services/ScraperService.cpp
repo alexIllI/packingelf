@@ -6,6 +6,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDebug>
@@ -49,10 +50,40 @@ ScraperResult ScraperResult::fromJson(const QByteArray& jsonLine)
 ScraperService::ScraperService(QObject* parent)
     : QObject(parent)
 {
-    // Default: look for scraper.exe next to the Qt app executable
     const QString appDir = QCoreApplication::applicationDirPath();
+
+    // ── 1. Try production exe (ships next to packingelf.exe) ──────────────
+    // Expected path: <appDir>/scraper/dist/scraper.exe
     m_scraperExe = QDir(appDir).filePath(
         QStringLiteral("scraper/dist/scraper.exe"));
+
+    if (QFileInfo::exists(m_scraperExe)) {
+        qInfo() << "[ScraperService] Production mode: using" << m_scraperExe;
+        return;
+    }
+
+    // ── 2. Dev-mode fallback: walk up the directory tree to find source ───
+    // When running from the build dir (e.g. build/msvc-debug/Debug/),
+    // walk upward until we find the 'scraper/.venv' directory.
+    // Typically 3-5 levels up from the exe depending on the build preset.
+    QDir dir(appDir);
+    for (int i = 0; i < 7; ++i) {
+        const QString python = dir.filePath(
+            QStringLiteral("scraper/.venv/Scripts/python.exe"));
+        if (QFileInfo::exists(python)) {
+            m_devMode       = true;
+            m_devPythonExe  = python;
+            m_devWorkingDir = QDir::cleanPath(dir.filePath(QStringLiteral("scraper")));
+            qInfo() << "[ScraperService] Dev mode: Python at" << m_devPythonExe;
+            qInfo() << "[ScraperService] Dev mode: working dir" << m_devWorkingDir;
+            return;
+        }
+        if (!dir.cdUp()) break;
+    }
+
+    // Neither found — emit an error at runtime when startBrowser() is called.
+    qWarning() << "[ScraperService] scraper.exe not found and dev .venv not found!";
+    qWarning() << "[ScraperService] Run scraper/build.ps1 or ensure .venv exists.";
 }
 
 ScraperService::~ScraperService()
@@ -151,8 +182,22 @@ void ScraperService::startBrowser(const QString& accountName)
     }
 
     m_process = new QProcess(this);
-    m_process->setProgram(m_scraperExe);
-    m_process->setArguments(args);
+
+    if (m_devMode) {
+        // Dev mode: run Python source directly.
+        // Equivalent to:  python -u -m src daemon [--account X | --manual-login]
+        // The -u flag disables Python's stdout buffering so JSON lines arrive promptly.
+        m_process->setProgram(m_devPythonExe);
+        m_process->setWorkingDirectory(m_devWorkingDir);
+        QStringList pythonArgs;
+        pythonArgs << QStringLiteral("-u") << QStringLiteral("-m") << QStringLiteral("src");
+        pythonArgs << args;
+        m_process->setArguments(pythonArgs);
+        qInfo() << "[ScraperService] Dev cmd:" << m_devPythonExe << pythonArgs.join(" ");
+    } else {
+        m_process->setProgram(m_scraperExe);
+        m_process->setArguments(args);
+    }
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
 
     // stdout → line-buffered JSON event parser

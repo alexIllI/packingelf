@@ -180,7 +180,16 @@ private:
     QString      m_currentOrderId;          // orderId of the in-flight scrape
     QByteArray   m_stdoutBuf;               // Accumulates partial stdout lines
 
+    // ── Executable discovery (set once in constructor) ────────────────
+    // Production: m_scraperExe is the path to scraper.exe
+    // Dev mode:   m_devMode=true, m_devPythonExe is .venv python,
+    //             m_devWorkingDir is the scraper source root, and
+    //             m_scraperExe is unused.
     QString      m_scraperExe;
+    bool         m_devMode       = false;    // true when running from Python source
+    QString      m_devPythonExe;             // .venv/Scripts/python.exe
+    QString      m_devWorkingDir;            // scraper/ source directory
+
     int          m_startupTimeoutMs = 180'000;  // 3 min (includes manual login wait)
     int          m_scrapeTimeoutMs  = 120'000;  // 2 min per order
 };
