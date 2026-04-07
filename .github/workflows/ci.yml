@@ -61,7 +61,7 @@ jobs:
 
       - name: Install dependencies (no browser download)
         working-directory: scraper
-        run: pip install -r requirements.txt --no-deps
+        run: pip install -r requirements.txt
 
       - name: Syntax check all scraper modules
         working-directory: scraper
