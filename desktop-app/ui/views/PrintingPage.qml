@@ -11,6 +11,25 @@ ContentPage {
     title: qsTr("列印出貨單")
     subtitle: qsTr("建立和管理出貨單")
 
+    // ── local state ─────────────────────────────────────────────────
+    property string inputError: ""          // validation error message
+    property string lastResult: ""          // last scrape result summary
+
+    // Connect ScraperSvc signals once (Connections block)
+    Connections {
+        target: ScraperSvc
+        function onScraperFinished(orderId, result) {
+            if (result.isSuccess) {
+                printingView.lastResult = qsTr("列印成功 ✔")
+            } else {
+                printingView.lastResult = qsTr("列印失敗: ") + result.message
+            }
+        }
+        function onScraperFailed(orderId, reason) {
+            printingView.lastResult = qsTr("錢誤: ") + reason
+        }
+    }
+
     Flickable {
         id: printingScrollView
         anchors.fill: parent
@@ -81,7 +100,8 @@ ContentPage {
 
                         CustomDropdown {
                             id: prefixDropdown
-                            placeholderText: "PG024"
+                            // Common myACG seller order prefixes
+                            model: ["PG024", "PG025", "PG026", "PG027"]
                             Layout.fillWidth: true
                             Layout.maximumWidth: 80
                         }
@@ -118,21 +138,83 @@ ContentPage {
                             id: printButton
                             text: qsTr("列印")
                             highlighted: true
+                            enabled: !ScraperSvc.busy
                             onClicked: {
-                                var prefix = prefixDropdown.currentText || "PG024";
-                                var fullOrderNumber = prefix + orderNumberInput.text;
-                                var invoice = invoiceNumberInput.text;
-                                if (orderNumberInput.text.length === 0 || invoice.length === 0) {
-                                    console.warn("Please fill in order number and invoice number");
+                                // ─ 1. Get raw inputs ────────────────────────────
+                                var suffix  = orderNumberInput.text.trim();
+                                var invoice = invoiceNumberInput.text.trim().toUpperCase();
+                                var prefix  = prefixDropdown.currentText || "PG024";
+                                printingView.inputError = "";
+                                printingView.lastResult = "";
+
+                                // ─ 2. Validate order suffix: exactly 5 digits ───────────
+                                var suffixRx = /^\d{5}$/;
+                                if (!suffixRx.test(suffix)) {
+                                    printingView.inputError =
+                                        qsTr("貨單後五碼必須為 5 位數字（例：12345）");
                                     return;
                                 }
-                                var id = OrdersVM.createOrder(fullOrderNumber, invoice);
-                                if (id.length > 0) {
-                                    console.log("Order created:", id);
-                                    orderNumberInput.text = "";
-                                    invoiceNumberInput.text = "";
+
+                                // ─ 3. Validate invoice: 2 letters + 7 digits ──────────
+                                var invoiceRx = /^[A-Z]{2}\d{7}$/;
+                                if (!invoiceRx.test(invoice)) {
+                                    printingView.inputError =
+                                        qsTr("發票號碼格式錯誤，應為 2 英文字母 + 7 位數字（例：AB1234567）");
+                                    return;
                                 }
+
+                                // ─ 4. Build full order number ──────────────────────
+                                var fullOrderNumber = prefix + suffix;
+
+                                // ─ 5. Check browser is ready ──────────────────────
+                                // browserState: 2 = Ready
+                                if (ScraperSvc.browserState !== 2) {
+                                    printingView.inputError =
+                                        qsTr("瀏覽器未就緒，請到首頁點擊「重新啟動」")
+                                    return;
+                                }
+
+                                // ─ 6. Create order in DB, then trigger scraper ───────
+                                var id = OrdersVM.createOrder(fullOrderNumber, invoice);
+                                if (id.length === 0) {
+                                    printingView.inputError = qsTr("建立資料庭檔失敗");
+                                    return;
+                                }
+
+                                // Trigger scraper daemon
+                                ScraperSvc.scrape(id, fullOrderNumber);
+                                printingView.lastResult = qsTr("列印中…")
+
+                                // Clear inputs for next entry
+                                orderNumberInput.text = "";
+                                invoiceNumberInput.text = "";
                             }
+                        }
+
+                        // Busy spinner while scraper is running
+                        CustomBusyIndicator {
+                            id: printBusyIndicator
+                            visible: ScraperSvc.busy
+                            running: ScraperSvc.busy
+                            Layout.preferredWidth: 30
+                            Layout.preferredHeight: 30
+                        }
+                    }
+
+                    // ─ Validation / result feedback row ───────────────────
+                    RowLayout {
+                        id: printFeedbackRow
+                        Layout.fillWidth: true
+                        visible: printingView.inputError !== "" || printingView.lastResult !== ""
+                        Text {
+                            id: printFeedbackText
+                            text: printingView.inputError !== ""
+                                  ? printingView.inputError
+                                  : printingView.lastResult
+                            color: printingView.inputError !== "" ? "#ff6060" : Theme.goodColor
+                            font.pixelSize: Constants.header3FontSize
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
                         }
                     }
 

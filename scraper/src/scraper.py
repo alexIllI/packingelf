@@ -237,6 +237,52 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.MY_STORE_NOT_FOUND,
                                 message=f"My Store button not found: {e}")
 
+    async def calibrate(self) -> dict:
+        """
+        Calibrate the browser session:
+          1. Close all extra tabs (keep only the first/main tab).
+          2. Bring the main tab to front.
+          3. If not already on the seller store page, re-navigate to My Store.
+
+        Returns a dict suitable for JSON: {"ok": bool, "url": str, "message": str}
+        Called by the daemon command handler when C++ sends {"cmd": "calibrate"}.
+        """
+        log("══════ Calibrate ══════")
+
+        # ── 1. Close extra tabs ────────────────────────────
+        pages = self._context.pages
+        if len(pages) > 1:
+            log(f"  Closing {len(pages) - 1} extra tab(s)…")
+            for p in pages[1:]:
+                try:
+                    await p.close()
+                except Exception as e:
+                    log(f"  (ignored tab close error: {e})")
+
+        # ── 2. Bring main tab to front ───────────────────────
+        try:
+            await self._page.bring_to_front()
+        except Exception as e:
+            log(f"  Could not bring tab to front: {e}")
+
+        # ── 3. Verify we're on the seller store page ─────────────
+        current_url = self._page.url
+        log(f"  Current URL: {current_url}")
+
+        STORE_URL_MARKER = "myacg.com.tw/seller"
+        if STORE_URL_MARKER not in current_url:
+            log("  Not on store page — re-navigating…")
+            err = await self.navigate_to_store()
+            if err:
+                log(f"  Re-navigation failed: {err.message}")
+                return {"ok": False, "url": current_url,
+                        "message": f"Re-navigation failed: {err.message}"}
+            current_url = self._page.url
+            log(f"  Re-navigated to: {current_url}")
+
+        log("══════ Calibrate complete ══════")
+        return {"ok": True, "url": current_url, "message": "Calibrated successfully"}
+
     # ── Order scraping ────────────────────────────────────────────
 
     async def scrape_order(self, order_number: str) -> ScrapeResult:

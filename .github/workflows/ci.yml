@@ -73,4 +73,8 @@ jobs:
 
       - name: Verify CLI help works (import smoke test)
         working-directory: scraper
-        run: python -m src --help
+        run: |
+          python -m src --help
+          python -m src daemon --help
+          python -m src scrape --help
+          python -m src account --help

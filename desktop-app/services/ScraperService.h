@@ -1,34 +1,45 @@
 // ─────────────────────────────────────────────────────────────
 // ScraperService.h
-// Launches the Python scraper as a background QProcess and
-// forwards the JSON result back to the rest of the application.
+// Manages the long-running Python scraper daemon process.
 //
-// DESIGN GOALS
+// ARCHITECTURE (Daemon mode)
 // ─────────────────────────────────────────────────────────────
-// • The Qt GUI thread is NEVER blocked.
-//   The scraper runs as a separate OS process (QProcess).
-//   If the scraper hangs, crashes, or times out, the Qt app
-//   keeps running and the user is notified via scraperFailed().
+// The scraper is a persistent QProcess that keeps the Chromium
+// browser alive between print jobs.
 //
-// • Each scrape() call starts one QProcess.  Only one scrape
-//   can be in-flight at a time (busy() guard prevents overlap).
+// Lifecycle:
+//   1. startBrowser()  → launches "scraper.exe daemon --account X"
+//   2. Process emits   → {"type":"ready"}  → state = Ready
+//   3. scrape() sends  → {"cmd":"scrape","order_id":"...","order_number":"..."}\n
+//   4. Process emits   → {"type":"scrape_result", ...}
+//   5. On unexpected process exit → state = Offline, emit browserDied()
+//   6. restartBrowser() kills old process and calls startBrowser() again
 //
-// • All stdout from the scraper is buffered; once the process
-//   exits the last line of JSON is parsed.
-//
-// • stderr from the scraper (its verbose step logs) is forwarded
-//   to Qt's qDebug() so it appears in the IDE / Qt Creator log.
-//
-// COMMUNICATION PROTOCOL
+// Stdin/Stdout protocol
 // ─────────────────────────────────────────────────────────────
-// Qt → scraper (process args):
-//   scraper.exe scrape --order <orderNumber> --account <accountName>
-//   scraper.exe scrape --order <orderNumber> --manual-login
+//   C++ → scraper stdin (commands):
+//     {"cmd":"scrape",    "order_id":"uuid","order_number":"PG02412345"}
+//     {"cmd":"calibrate"}
+//     {"cmd":"ping"}
+//     {"cmd":"quit"}
 //
-// scraper → Qt (stdout, one JSON line):
-//   {"status":"SUCCESS","buyer_name":"...","order_date":"...","using_coupon":true}
-//   {"status":"ORDER_NOT_FOUND"}
-//   {"status":"ERROR","message":"..."}
+//   scraper stdout → C++ (events):
+//     {"type":"ready"}
+//     {"type":"scrape_result","order_id":"...","status":"SUCCESS",...}
+//     {"type":"calibrate_result","ok":true,"url":"...","message":"..."}
+//     {"type":"pong"}
+//     {"type":"error","msg":"..."}
+//
+//   stderr → forwarded line-by-line to qDebug() (progress logs)
+//
+// Robustness
+// ─────────────────────────────────────────────────────────────
+//   • If the user closes the browser window, the process exits.
+//     The Qt app detects this (onFinished), sets state=Offline and
+//     emits browserDied(). The user can click 重新啟動 to recover.
+//   • restartBrowser() is always safe — it kills any running process
+//     first, then starts a fresh one. The Qt app never crashes.
+//   • Only one scrape() or calibrate() can run at a time (busy guard).
 // ─────────────────────────────────────────────────────────────
 #pragma once
 
@@ -39,17 +50,17 @@
 #include <QByteArray>
 
 // ─── Result struct ────────────────────────────────────────────
-// Mirrors the JSON keys written by scraper/__main__.py.
+// Mirrors the JSON keys in scrape_result events from the daemon.
 struct ScraperResult {
-    QString status;          // ScraperStatus string value
+    QString status;          // ScraperStatus value string
     QString buyerName;
     QString orderDate;
     bool    usingCoupon = false;
-    QString message;         // Non-empty on failure
+    QString message;         // Non-empty on any failure
 
     bool isSuccess() const;
 
-    // Parse from the raw JSON bytes written to scraper stdout.
+    // Parse from a {"type":"scrape_result", ...} JSON object's raw bytes.
     static ScraperResult fromJson(const QByteArray& jsonLine);
 };
 
@@ -57,64 +68,119 @@ struct ScraperResult {
 class ScraperService : public QObject {
     Q_OBJECT
 
-    // QML can bind to this to show a "scraping…" spinner
-    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
-
 public:
+    // ── Browser state (exposed to QML via browserState property) ──
+    // Matches the scraper daemon lifecycle states.
+    enum BrowserState {
+        Offline      = 0,   // Process not running
+        Starting     = 1,   // Process launched, waiting for {"type":"ready"}
+        Ready        = 2,   // Browser alive and on My Store page
+        Busy         = 3,   // A scrape or calibrate is in progress
+        Restarting   = 4,   // restartBrowser() in progress
+        Error        = 5    // Process exited unexpectedly
+    };
+    Q_ENUM(BrowserState)
+
+    // ── QML-bindable properties ────────────────────────────────
+    Q_PROPERTY(int     browserState READ browserStateInt NOTIFY browserStateChanged)
+    Q_PROPERTY(QString statusText   READ statusText      NOTIFY statusTextChanged)
+    Q_PROPERTY(bool    busy         READ busy            NOTIFY busyChanged)
+
     explicit ScraperService(QObject* parent = nullptr);
     ~ScraperService() override;
 
-    bool busy() const;
+    // ── Property readers ──────────────────────────────────────
+    int     browserStateInt() const { return static_cast<int>(m_state); }
+    BrowserState browserState() const { return m_state; }
+    QString statusText() const { return m_statusText; }
+    bool    busy()       const { return m_state == Busy; }
 
     // ── Configuration (set before first call) ─────────────────
 
-    // Full path to scraper.exe.  Defaults to "scraper/dist/scraper.exe"
-    // relative to the application executable directory.
+    // Full path to scraper.exe.  Defaults to "<appDir>/scraper/dist/scraper.exe"
     void setScraperExe(const QString& path);
 
-    // Milliseconds before the scraper process is killed (default: 120 000)
-    void setTimeoutMs(int ms);
+    // Milliseconds to wait for {"type":"ready"} after launching (default: 120 000)
+    void setStartupTimeoutMs(int ms);
 
-    // ── Main API ──────────────────────────────────────────────
+    // Milliseconds to wait for a scrape result before killing the process (default: 120 000)
+    void setScrapeTimeoutMs(int ms);
 
-    // Launch the scraper for one order.
-    //
-    // orderId      – UUID stored in OrdersRepository (returned to caller
-    //                in scraperFinished so it can update the right row)
-    // orderNumber  – e.g. "PG02491384"
-    // accountName  – Friendly name key in the encrypted account store.
-    //                Pass an empty string to use --manual-login mode.
-    Q_INVOKABLE void scrape(const QString& orderId,
-                            const QString& orderNumber,
-                            const QString& accountName = QString());
+    // ── Main API (all Q_INVOKABLE for QML) ───────────────────
 
-    // Immediately kill any running scraper process.
+    // Start the browser daemon.
+    //   accountName = "" → --manual-login (user types credentials in browser)
+    //   accountName = "子午計畫" → reads from encrypted account store
+    Q_INVOKABLE void startBrowser(const QString& accountName = QString());
+
+    // Kill any running daemon and start a fresh one.
+    // Safe to call at any time — will not crash the Qt app.
+    Q_INVOKABLE void restartBrowser(const QString& accountName = QString());
+
+    // Send {"cmd":"calibrate"} to the running daemon.
+    // Closes extra tabs, returns to My Store page.
+    // No-op if not in Ready or Busy state.
+    Q_INVOKABLE void calibrate();
+
+    // Send a scrape command for one order to the running daemon.
+    //   orderId     = UUID from OrdersRepository (returned in scraperFinished signal)
+    //   orderNumber = e.g. "PG02412345"
+    // No-op if browser is not Ready. Emits scraperFailed if daemon is not running.
+    Q_INVOKABLE void scrape(const QString& orderId, const QString& orderNumber);
+
+    // Kill the daemon process immediately (e.g. when app is quitting).
     Q_INVOKABLE void cancel();
 
 signals:
-    // Emitted when the scraper process exits and JSON is parsed.
-    // Check result.isSuccess() to distinguish success from order-level errors.
+    // ── Browser lifecycle signals ─────────────────────────────
+    void browserReady();                 // Browser is on My Store, ready for orders
+    void browserDied(const QString& reason); // Unexpected process exit
+
+    // ── Scrape result signals ─────────────────────────────────
+    // Emitted when a scrape_result event arrives from the daemon.
     void scraperFinished(const QString& orderId, const ScraperResult& result);
 
-    // Emitted when the process crashes, times out, or cannot start.
+    // Emitted on timeout or process crash during a scrape.
     void scraperFailed(const QString& orderId, const QString& reason);
 
+    // ── Property-change signals ────────────────────────────────
+    void browserStateChanged();
+    void statusTextChanged();
     void busyChanged();
 
 private slots:
-    void onFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onReadyReadStdout();
+    void onReadyReadStderr();
+    void onFinished(int exitCode, QProcess::ExitStatus status);
     void onErrorOccurred(QProcess::ProcessError error);
-    void onTimeout();
+    void onStartupTimeout();
+    void onScrapeTimeout();
 
 private:
-    void cleanup();
+    // Parse a single JSON event line received from the daemon stdout.
+    void handleEvent(const QByteArray& line);
 
-    QProcess* m_process  = nullptr;
-    QTimer*   m_timer    = nullptr;
+    // Set state + statusText together, emit both changed signals.
+    void setState(BrowserState s, const QString& text);
 
-    QString   m_currentOrderId;   // ID of the order being scraped
-    QString   m_scraperExe;
-    int       m_timeoutMs = 120'000;
+    // Kill process, clear pointers/timers. Does NOT emit signals.
+    void killProcess();
 
-    QByteArray m_stdoutBuf;        // Accumulates process stdout
+    // Write a JSON command to the daemon's stdin.
+    void sendCommand(const QByteArray& jsonLine);
+
+    QProcess* m_process         = nullptr;
+    QTimer*   m_startupTimer    = nullptr;   // Guards {"type":"ready"} arrival
+    QTimer*   m_scrapeTimer     = nullptr;   // Guards scrape completion
+
+    BrowserState m_state        = Offline;
+    QString      m_statusText   = QStringLiteral("未啟動");
+
+    QString      m_pendingAccount;           // Account name for current/next startBrowser
+    QString      m_currentOrderId;          // orderId of the in-flight scrape
+    QByteArray   m_stdoutBuf;               // Accumulates partial stdout lines
+
+    QString      m_scraperExe;
+    int          m_startupTimeoutMs = 180'000;  // 3 min (includes manual login wait)
+    int          m_scrapeTimeoutMs  = 120'000;  // 2 min per order
 };

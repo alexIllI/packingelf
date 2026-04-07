@@ -227,6 +227,9 @@ ContentPage {
                         Layout.preferredHeight: 27
                     }
 
+                    // ─── Browser state indicator ─────────────────────────
+                    // Binds to ScraperSvc.browserState (int enum) and statusText.
+                    // BrowserState: 0=Offline 1=Starting 2=Ready 3=Busy 4=Restarting 5=Error
                     RowLayout {
                         id: webStatusFrame
                         Text {
@@ -243,25 +246,38 @@ ContentPage {
                             Layout.minimumHeight: 25
                             Layout.minimumWidth: 70
                             RowLayout {
-                                id: rowLayout
+                                id: webIndicatorRow
                                 anchors.fill: parent
                                 anchors.leftMargin: 5
                                 anchors.rightMargin: 5
-                                anchors.topMargin: 0
-                                anchors.bottomMargin: 0
                                 Rectangle {
                                     id: home_MyacgIndicator
-                                    color: Theme.goodColor
+                                    // Green=Ready, Yellow=Starting/Busy/Restarting, Red=Offline/Error
+                                    color: {
+                                        var s = ScraperSvc.browserState;
+                                        if (s === 2) return Theme.goodColor;           // Ready
+                                        if (s === 1 || s === 3 || s === 4) return "#f0c040"; // Starting/Busy/Restarting
+                                        return Theme.errorColor;                       // Offline / Error
+                                    }
+                                    Behavior on color { ColorAnimation { duration: 300 } }
                                     radius: 5
                                     Layout.preferredWidth: 10
                                     Layout.preferredHeight: 10
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                                 }
-
                                 Text {
                                     id: home_MyacgCurStatusHeader3
                                     color: Theme.header3Color
-                                    text: qsTr("online")
+                                    // Map enum int to short display text
+                                    text: {
+                                        var s = ScraperSvc.browserState;
+                                        if (s === 0) return qsTr("離線");
+                                        if (s === 1) return qsTr("啟動中");
+                                        if (s === 2) return qsTr("就緒");
+                                        if (s === 3) return qsTr("執行中");
+                                        if (s === 4) return qsTr("重啟中");
+                                        return qsTr("錯誤");
+                                    }
                                     font.pixelSize: Constants.header3FontSize
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                                 }
@@ -279,29 +295,42 @@ ContentPage {
                     Text {
                         id: home_WebExcutedCommandHeader3
                         color: Theme.header3Color
-                        text: qsTr("搜尋貨單...")
+                        // Live status message from the scraper daemon
+                        text: ScraperSvc.statusText
                         font.pixelSize: Constants.header3FontSize
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
                     }
 
                     RowLayout {
                         id: webControlButtonFrame
                         Layout.fillWidth: true
+
+                        // 重新啟動: kills browser and restarts a fresh session.
+                        // Safe to call at any time — won't crash the app.
+                        // Uses the same account as the last startBrowser() call.
                         CustomButton {
                             id: home_WebRestartButton
                             text: qsTr("重新啟動")
+                            enabled: ScraperSvc.browserState !== 1  // not while Starting
+                            highlighted: ScraperSvc.browserState === 0 || ScraperSvc.browserState === 5
                             Layout.fillWidth: true
                             Layout.minimumHeight: 35
                             Layout.minimumWidth: 85
+                            onClicked: ScraperSvc.restartBrowser("")
                         }
 
+                        // 校正: close extra tabs, return to My Store.
                         CustomButton {
                             id: home_WebCalibrateButton
                             text: qsTr("校正")
+                            enabled: ScraperSvc.browserState === 2 || ScraperSvc.browserState === 3
                             Layout.fillWidth: true
                             Layout.minimumHeight: 35
                             Layout.fillHeight: false
                             Layout.minimumWidth: 85
+                            onClicked: ScraperSvc.calibrate()
                         }
                     }
 

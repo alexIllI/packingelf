@@ -33,18 +33,21 @@ WiredApp wireEverything()
     app.ordersVM    = std::make_unique<OrdersViewModel>(app.ordersRepo);
     app.dashboardVM = std::make_unique<DashboardViewModel>(app.ordersRepo);
 
-    // ─── Step 4: Create the ScraperService ───
-    // Launches scraper.exe (Python/Playwright) as a background QProcess.
-    // The scraper is isolated: its crashes/hangs don't affect the Qt app.
-    app.scraperSvc  = std::make_unique<ScraperService>();
-    // ScraperService looks for scraper/dist/scraper.exe next to the .exe by default.
-    // Uncomment and adjust if your build layout differs:
-    // app.scraperSvc->setScraperExe("path/to/scraper.exe");
+    // ─── Step 4: Create the ScraperService and auto-start the browser ───
+    // The daemon launches Chromium, logs in, and navigates to My Store.
+    // The Qt app stays fully responsive during the 30–90 second startup.
+    //
+    // accountName = "" → --manual-login mode (user types credentials)
+    // accountName = "子午計畫" → reads from encrypted account store (production)
+    //
+    // After setup, change the empty string to the account name and rebuild.
+    app.scraperSvc = std::make_unique<ScraperService>();
+    app.scraperSvc->startBrowser(QStringLiteral(""));  // "" = manual-login
 
     // ─── Step 5: Connect signals ───
     // When OrdersVM creates/removes an order, DashboardVM auto-refreshes.
-    // This uses Qt's signal/slot mechanism for loose coupling.
     app.dashboardVM->connectToOrdersVM(app.ordersVM.get());
 
     return app;
 }
+
