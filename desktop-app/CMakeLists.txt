@@ -144,3 +144,4 @@ endif()
 
 # (Optional) SCXML compile
 # qt6_add_statecharts(packingelf state/Lifecycle.scxml)
+
