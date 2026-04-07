@@ -43,6 +43,7 @@ add_executable(packingelf
   data/OrdersRepository.cpp
   viewmodels/OrdersViewModel.cpp
   viewmodels/DashboardViewModel.cpp
+  services/ScraperService.cpp
 )
 
 target_include_directories(packingelf PRIVATE app data services viewmodels state)

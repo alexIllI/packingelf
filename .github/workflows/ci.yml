@@ -7,8 +7,9 @@ on:
     branches: [master]
 
 jobs:
+  # ── Job 1: C++ Desktop App ─────────────────────────────────────────────────
   build:
-    name: Build (Windows)
+    name: Build C++ (Windows)
     runs-on: windows-latest
 
     steps:
@@ -43,3 +44,33 @@ jobs:
             $output | Write-Host
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  # ── Job 2: Python Scraper Lint & Smoke Test ────────────────────────────────
+  scraper-lint:
+    name: Scraper Syntax Check (Python)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies (no browser download)
+        working-directory: scraper
+        run: pip install -r requirements.txt --no-deps
+
+      - name: Syntax check all scraper modules
+        working-directory: scraper
+        run: |
+          python -m py_compile src/models.py    && echo "models.py OK"
+          python -m py_compile src/account_store.py && echo "account_store.py OK"
+          python -m py_compile src/scraper.py   && echo "scraper.py OK"
+          python -m py_compile src/__main__.py  && echo "__main__.py OK"
+
+      - name: Verify CLI help works (import smoke test)
+        working-directory: scraper
+        run: python -m src --help

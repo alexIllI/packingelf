@@ -31,6 +31,7 @@
 #include "OrdersRepository.h"
 #include "OrdersViewModel.h"
 #include "DashboardViewModel.h"
+#include "ScraperService.h"
 
 // Holds all wired-up application objects.
 // This struct is returned by wireEverything() and kept alive
@@ -40,6 +41,7 @@ struct WiredApp {
     std::shared_ptr<OrdersRepository>    ordersRepo;    // CRUD operations (shared)
     std::unique_ptr<OrdersViewModel>     ordersVM;      // QML list model for orders
     std::unique_ptr<DashboardViewModel>  dashboardVM;   // QML metrics for HomePage
+    std::unique_ptr<ScraperService>      scraperSvc;    // Launches scraper.exe via QProcess
 };
 
 // Creates and connects all application layers.

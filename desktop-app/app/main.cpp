@@ -24,6 +24,7 @@
 #include "wiring.h"
 #include "OrdersViewModel.h"
 #include "DashboardViewModel.h"
+#include "ScraperService.h"
 
 int main(int argc, char **argv)
 {
@@ -50,6 +51,10 @@ int main(int argc, char **argv)
         QStringLiteral("OrdersVM"), wired.ordersVM.get());
     engine.rootContext()->setContextProperty(
         QStringLiteral("DashboardVM"), wired.dashboardVM.get());
+    // ScraperSvc.scrape(orderId, orderNumber, accountName) → QML triggers a scrape
+    // ScraperSvc.busy → bind to show a loading spinner
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("ScraperSvc"), wired.scraperSvc.get());
 
     // ─── Load the root QML file ───
     // This is the entry point for the QML UI, defined in the

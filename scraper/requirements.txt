@@ -1,0 +1,3 @@
+# PackingElf Scraper — Python dependencies
+playwright>=1.44.0
+cryptography>=42.0.0

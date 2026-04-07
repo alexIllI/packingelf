@@ -4,3 +4,22 @@ desktop-app/build/
 .vscode/
 .qtcreator/
 scripts/
+
+# ─── Credentials & secrets (NEVER commit these) ──────────────────────────────
+*.enc           # Encrypted account store (accounts.enc)
+*.key           # Any raw key files
+config.ini      # Legacy config with credentials
+secrets.*       # Any secrets file
+.env            # Environment variable files with secrets
+.env.*
+
+# ─── Python scraper ───────────────────────────────────────────────────────────
+scraper/.venv/          # Virtual environment
+scraper/__pycache__/
+scraper/src/__pycache__/
+scraper/**/__pycache__/
+scraper/**/*.pyc
+scraper/**/*.pyo
+scraper/dist/           # PyInstaller output (scraper.exe)
+scraper/build/          # PyInstaller build temp
+scraper/*.spec          # PyInstaller spec files (auto-generated)
