@@ -1,4 +1,4 @@
-name: CI – Desktop App Build
+name: CI Desktop App Build
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
     branches: [master]
 
 jobs:
-  # ── Job 1: C++ Desktop App ─────────────────────────────────────────────────
   build:
     name: Build C++ (Windows)
     runs-on: windows-latest
@@ -45,7 +44,41 @@ jobs:
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-  # ── Job 2: Python Scraper Lint & Smoke Test ────────────────────────────────
+  host-build:
+    name: Build Host App (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Maven
+        shell: pwsh
+        run: |
+          $mavenVersion = "3.9.9"
+          $zip = Join-Path $env:RUNNER_TEMP "apache-maven-$mavenVersion-bin.zip"
+          $root = Join-Path $env:RUNNER_TEMP "apache-maven-$mavenVersion"
+          Invoke-WebRequest -Uri "https://archive.apache.org/dist/maven/maven-3/$mavenVersion/binaries/apache-maven-$mavenVersion-bin.zip" -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $env:RUNNER_TEMP -Force
+          Add-Content $env:GITHUB_PATH (Join-Path $root "bin")
+
+      - name: Build Host App Image
+        shell: pwsh
+        working-directory: host-service
+        run: .\build.ps1
+
+      - name: Upload Host App Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: packingelf-host-app-image
+          path: host-service/build-output/jpackage/PackingElf Host
+
   scraper-lint:
     name: Scraper Syntax Check (Python)
     runs-on: ubuntu-latest
@@ -66,10 +99,10 @@ jobs:
       - name: Syntax check all scraper modules
         working-directory: scraper
         run: |
-          python -m py_compile src/models.py    && echo "models.py OK"
-          python -m py_compile src/account_store.py && echo "account_store.py OK"
-          python -m py_compile src/scraper.py   && echo "scraper.py OK"
-          python -m py_compile src/__main__.py  && echo "__main__.py OK"
+          python -m py_compile src/models.py
+          python -m py_compile src/account_store.py
+          python -m py_compile src/scraper.py
+          python -m py_compile src/__main__.py
 
       - name: Verify CLI help works (import smoke test)
         working-directory: scraper
