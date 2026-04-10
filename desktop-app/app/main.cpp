@@ -24,6 +24,7 @@
 #include "DashboardViewModel.h"
 #include "OrdersViewModel.h"
 #include "ScraperService.h"
+#include "SyncService.h"
 #include "wiring.h"
 
 int main(int argc, char **argv) {
@@ -54,6 +55,8 @@ int main(int argc, char **argv) {
   // scrape ScraperSvc.busy → bind to show a loading spinner
   engine.rootContext()->setContextProperty(QStringLiteral("ScraperSvc"),
                                            wired.scraperSvc.get());
+  engine.rootContext()->setContextProperty(QStringLiteral("SyncSvc"),
+                                           wired.syncSvc.get());
 
   // ─── Load the root QML file ───
   // This is the entry point for the QML UI, defined in the

@@ -1,47 +1,47 @@
-// ─────────────────────────────────────────────────────────────
-// Database.cpp
-// Implementation of the local SQLite database manager.
-//
-// On open():
-//   1. Determines the storage directory via QStandardPaths
-//   2. Creates the directory if it doesn't exist
-//   3. Opens the SQLite database (creates file if missing)
-//   4. Enables WAL (Write-Ahead Logging) for better read perf
-//   5. Enables foreign key enforcement
-//   6. Runs any pending schema migrations
-//
-// Migration system:
-//   - A `schema_version` table tracks the current version
-//   - Each migration block checks `if (currentVersion < N)`
-//   - After applying, it bumps the version number
-//   - This makes it safe to run open() multiple times
-// ─────────────────────────────────────────────────────────────
 #include "Database.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QStandardPaths>
 #include <QDebug>
 
+namespace {
+bool execOrWarn(QSqlQuery& query, const QString& sql, const char* context)
+{
+    if (query.exec(sql))
+        return true;
+
+    qWarning() << "[Database]" << context << "failed:" << query.lastError().text();
+    return false;
+}
+
+bool tableHasColumn(QSqlDatabase& db, const QString& tableName, const QString& columnName)
+{
+    QSqlQuery q(db);
+    if (!q.exec(QStringLiteral("PRAGMA table_info(%1)").arg(tableName)))
+        return false;
+
+    while (q.next()) {
+        if (q.value(1).toString() == columnName)
+            return true;
+    }
+    return false;
+}
+}
+
 bool Database::open()
 {
-    // QStandardPaths::AppDataLocation gives us an OS-appropriate directory.
-    // On Windows this is typically: C:/Users/<user>/AppData/Local/<AppName>/
-    // We need setOrganizationName + setApplicationName in main.cpp for this
-    // to resolve to a meaningful path (see main.cpp).
     const QString dataDir =
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
 
-    // Ensure the directory exists (mkpath creates all intermediate dirs)
     QDir().mkpath(dataDir);
 
     m_path = dataDir + QStringLiteral("/packingelf.db");
     qDebug() << "[Database] Opening SQLite at:" << m_path;
 
-    // "QSQLITE" is Qt's built-in SQLite driver — no external deps needed.
-    // addDatabase() registers this connection as the default connection.
     m_db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
     m_db.setDatabaseName(m_path);
 
@@ -50,12 +50,9 @@ bool Database::open()
         return false;
     }
 
-    // WAL mode allows multiple readers while one writer is active.
-    // This is important for future multi-threaded access (e.g., sync engine).
     QSqlQuery walQuery(m_db);
     walQuery.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
 
-    // SQLite foreign keys are OFF by default — we must enable them per-connection.
     QSqlQuery fkQuery(m_db);
     fkQuery.exec(QStringLiteral("PRAGMA foreign_keys=ON"));
 
@@ -76,78 +73,149 @@ bool Database::migrate()
 {
     QSqlQuery q(m_db);
 
-    // ─── Step 1: Create the schema_version tracking table ───
-    // This table holds a single row with the current schema version number.
-    if (!q.exec(QStringLiteral(
+    if (!execOrWarn(q, QStringLiteral(
             "CREATE TABLE IF NOT EXISTS schema_version ("
-            "  version INTEGER NOT NULL DEFAULT 0"
-            ")"))) {
-        qWarning() << "[Database] schema_version create failed:" << q.lastError().text();
+            " version INTEGER NOT NULL DEFAULT 0"
+            ")"), "schema_version create")) {
         return false;
     }
 
-    // Read the current version (or insert the initial row if table is empty)
     q.exec(QStringLiteral("SELECT version FROM schema_version"));
     int currentVersion = 0;
     if (q.next()) {
         currentVersion = q.value(0).toInt();
     } else {
-        // First time running — insert version 0
         q.exec(QStringLiteral("INSERT INTO schema_version (version) VALUES (0)"));
     }
 
-    qDebug() << "[Database] Current schema version:" << currentVersion;
-
-    // ─── Migration v0 → v1: Create the orders table ───
-    // This is the core table for storing order data.
-    // Each order has:
-    //   - id:             UUID primary key (generated in C++)
-    //   - order_number:   e.g. "PG02491384" (prefix + 5-digit suffix)
-    //   - invoice_number: e.g. "AB1234567"
-    //   - order_date:     date from web scraper (may be empty initially)
-    //   - buyer_name:     name from web scraper (may be empty initially)
-    //   - status:         printed | shipped | returned | closed
-    //   - using_coupon:   0 or 1 (from web scraper)
-    //   - created_by:     username who created this record
-    //   - created_at:     ISO 8601 timestamp of creation
-    //   - updated_at:     ISO 8601 timestamp of last update
     if (currentVersion < 1) {
-        qDebug() << "[Database] Migrating to v1: creating orders table";
-
-        const bool ok = q.exec(QStringLiteral(
-            "CREATE TABLE IF NOT EXISTS orders ("
-            "  id             TEXT PRIMARY KEY,"
-            "  order_number   TEXT NOT NULL,"
-            "  invoice_number TEXT NOT NULL,"
-            "  order_date     TEXT,"
-            "  buyer_name     TEXT,"
-            "  status         TEXT NOT NULL DEFAULT 'printed',"
-            "  using_coupon   INTEGER NOT NULL DEFAULT 0,"
-            "  created_by     TEXT NOT NULL DEFAULT '',"
-            "  created_at     TEXT NOT NULL,"
-            "  updated_at     TEXT NOT NULL"
-            ")"));
-
-        if (!ok) {
-            qWarning() << "[Database] orders table creation failed:" << q.lastError().text();
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS orders ("
+                " id TEXT PRIMARY KEY,"
+                " order_number TEXT NOT NULL,"
+                " invoice_number TEXT NOT NULL,"
+                " order_date TEXT,"
+                " buyer_name TEXT,"
+                " status TEXT NOT NULL DEFAULT 'printed',"
+                " using_coupon INTEGER NOT NULL DEFAULT 0,"
+                " created_by TEXT NOT NULL DEFAULT '',"
+                " created_at TEXT NOT NULL,"
+                " updated_at TEXT NOT NULL"
+                ")"), "legacy orders create")) {
             return false;
         }
-
-        // Index on order_number for fast lookups when searching by order number
         q.exec(QStringLiteral(
             "CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number)"));
-
-        // Index on created_at for fast date-range queries (history page filtering)
         q.exec(QStringLiteral(
             "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)"));
-
-        // Bump the schema version so this migration won't run again
         q.exec(QStringLiteral("UPDATE schema_version SET version = 1"));
         currentVersion = 1;
     }
 
-    // Future migrations go here:
-    // if (currentVersion < 2) { ... bump to 2 }
+    if (currentVersion < 2) {
+        if (tableHasColumn(m_db, QStringLiteral("orders"), QStringLiteral("status"))
+            && !tableHasColumn(m_db, QStringLiteral("orders"), QStringLiteral("order_status"))) {
+            if (!execOrWarn(q, QStringLiteral(
+                    "ALTER TABLE orders RENAME TO orders_legacy_v1"), "orders rename")) {
+                return false;
+            }
+        }
+
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS orders ("
+                " id TEXT PRIMARY KEY,"
+                " order_number TEXT NOT NULL UNIQUE,"
+                " invoice_number TEXT NOT NULL,"
+                " order_date TEXT NOT NULL,"
+                " buyer_name TEXT NOT NULL,"
+                " order_status TEXT NOT NULL,"
+                " using_coupon INTEGER NOT NULL DEFAULT 0,"
+                " created_by_client_id TEXT NOT NULL,"
+                " updated_by_client_id TEXT NOT NULL,"
+                " created_at TEXT NOT NULL,"
+                " updated_at TEXT NOT NULL,"
+                " deleted_at TEXT,"
+                " server_revision INTEGER NOT NULL DEFAULT 0"
+                ")"), "orders v2 create")) {
+            return false;
+        }
+
+        q.exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)"));
+        q.exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_orders_server_revision ON orders(server_revision)"));
+
+        if (tableHasColumn(m_db, QStringLiteral("orders_legacy_v1"), QStringLiteral("status"))) {
+            if (!execOrWarn(q, QStringLiteral(
+                    "INSERT OR IGNORE INTO orders ("
+                    " id, order_number, invoice_number, order_date, buyer_name, order_status,"
+                    " using_coupon, created_by_client_id, updated_by_client_id, created_at, updated_at, deleted_at, server_revision"
+                    ") "
+                    "SELECT "
+                    " id, order_number, invoice_number, order_date, buyer_name, lower(status),"
+                    " using_coupon, "
+                    " CASE WHEN created_by IS NULL OR created_by = '' THEN 'legacy-client' ELSE created_by END,"
+                    " CASE WHEN created_by IS NULL OR created_by = '' THEN 'legacy-client' ELSE created_by END,"
+                    " created_at, updated_at, NULL, 0 "
+                    "FROM orders_legacy_v1 "
+                    "WHERE lower(status) IN ('success', 'canceled', 'returned') "
+                    "AND COALESCE(order_date, '') <> '' "
+                    "AND COALESCE(buyer_name, '') <> ''"), "orders legacy migrate")) {
+                return false;
+            }
+        }
+
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS scrape_submissions ("
+                " submission_id TEXT PRIMARY KEY,"
+                " order_number TEXT NOT NULL,"
+                " invoice_number TEXT NOT NULL,"
+                " state TEXT NOT NULL,"
+                " error_message TEXT,"
+                " created_at TEXT NOT NULL,"
+                " updated_at TEXT NOT NULL"
+                ")"), "scrape_submissions create")) {
+            return false;
+        }
+
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS outbox ("
+                " mutation_id TEXT PRIMARY KEY,"
+                " client_id TEXT NOT NULL,"
+                " entity_type TEXT NOT NULL,"
+                " entity_key TEXT NOT NULL,"
+                " operation TEXT NOT NULL,"
+                " payload_json TEXT NOT NULL,"
+                " status TEXT NOT NULL,"
+                " attempt_count INTEGER NOT NULL DEFAULT 0,"
+                " next_attempt_at TEXT NOT NULL,"
+                " last_error TEXT,"
+                " created_at TEXT NOT NULL,"
+                " updated_at TEXT NOT NULL"
+                ")"), "outbox create")) {
+            return false;
+        }
+
+        q.exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_outbox_status_next_attempt "
+            "ON outbox(status, next_attempt_at)"));
+
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS sync_state ("
+                " id INTEGER PRIMARY KEY CHECK (id = 1),"
+                " client_id TEXT NOT NULL,"
+                " client_name TEXT NOT NULL,"
+                " host_base_url TEXT NOT NULL,"
+                " pairing_token TEXT NOT NULL,"
+                " last_pulled_revision INTEGER NOT NULL DEFAULT 0,"
+                " last_discovery_at TEXT"
+                ")"), "sync_state create")) {
+            return false;
+        }
+
+        q.exec(QStringLiteral("UPDATE schema_version SET version = 2"));
+        currentVersion = 2;
+    }
 
     qDebug() << "[Database] Migration complete. Version:" << currentVersion;
     return true;

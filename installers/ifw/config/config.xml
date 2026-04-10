@@ -1,1 +1,10 @@
-# IFW installer config (points to online repo)
+<?xml version="1.0" encoding="UTF-8"?>
+<Installer>
+    <Name>PackingElf Suite</Name>
+    <Version>1.0.0</Version>
+    <Title>PackingElf Installer</Title>
+    <Publisher>Meridian</Publisher>
+    <StartMenuDir>PackingElf</StartMenuDir>
+    <TargetDir>@ApplicationsDir@/Meridian</TargetDir>
+    <ControlScript>../scripts/scripts.qs</ControlScript>
+</Installer>

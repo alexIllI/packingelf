@@ -18,14 +18,14 @@ ContentPage {
     // Connect ScraperSvc signals once (Connections block)
     Connections {
         target: ScraperSvc
-        function onScraperFinished(orderId, result) {
+        function onScraperFinished(submissionId, result) {
             if (result.isSuccess) {
                 printingView.lastResult = qsTr("列印成功 ✔");
             } else {
                 printingView.lastResult = qsTr("列印失敗: ") + result.message;
             }
         }
-        function onScraperFailed(orderId, reason) {
+        function onScraperFailed(submissionId, reason) {
             printingView.lastResult = qsTr("錢誤: ") + reason;
         }
     }
@@ -172,14 +172,14 @@ ContentPage {
                                 }
 
                                 // ─ 6. Create order in DB, then trigger scraper ───────
-                                var id = OrdersVM.createOrder(fullOrderNumber, invoice);
-                                if (id.length === 0) {
+                                var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
+                                if (submissionId.length === 0) {
                                     printingView.inputError = qsTr("建立資料庭檔失敗");
                                     return;
                                 }
 
                                 // Trigger scraper daemon
-                                ScraperSvc.scrape(id, fullOrderNumber);
+                                ScraperSvc.scrape(submissionId, fullOrderNumber);
                                 printingView.lastResult = qsTr("列印中…");
 
                                 // Clear inputs for next entry

@@ -32,6 +32,7 @@
 #include "OrdersRepository.h"
 #include "OrdersViewModel.h"
 #include "ScraperService.h"
+#include "SyncService.h"
 
 // Holds all wired-up application objects.
 // This struct is returned by wireEverything() and kept alive
@@ -43,6 +44,7 @@ struct WiredApp {
   std::unique_ptr<DashboardViewModel> dashboardVM; // QML metrics for HomePage
   std::unique_ptr<ScraperService>
       scraperSvc; // Launches scraper.exe via QProcess
+  std::unique_ptr<SyncService> syncSvc; // Handles host pairing, outbox push, and pull sync
 };
 
 // Creates and connects all application layers.

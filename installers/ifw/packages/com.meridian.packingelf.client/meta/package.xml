@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>PackingElf Client</DisplayName>
+    <Description>Qt desktop client with local scraper, local SQLite, and host sync.</Description>
+    <Version>1.0.0</Version>
+    <ReleaseDate>2026-04-10</ReleaseDate>
+    <Default>true</Default>
+    <Name>com.meridian.packingelf.client</Name>
+    <Virtual>false</Virtual>
+</Package>

@@ -17,7 +17,9 @@
 
 bool ScraperResult::isSuccess() const
 {
-    return status == QStringLiteral("SUCCESS");
+    return status == QStringLiteral("SUCCESS")
+        || status == QStringLiteral("ORDER_CANCELED")
+        || status == QStringLiteral("RETURNED");
 }
 
 ScraperResult ScraperResult::fromJson(const QByteArray& jsonLine)
