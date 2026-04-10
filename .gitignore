@@ -3,6 +3,8 @@ desktop-app/build/
 host-service/target/
 host-service/build-output/
 .tools/
+.worktrees/
+desktop-app/.qmlls.ini
 *.vcxproj*
 .vscode/
 .qtcreator/
@@ -15,6 +17,7 @@ config.ini      # Legacy config with credentials
 secrets.*       # Any secrets file
 .env            # Environment variable files with secrets
 .env.*
+old_version_code/
 
 # ─── Python scraper ───────────────────────────────────────────────────────────
 scraper/.venv/          # Virtual environment
