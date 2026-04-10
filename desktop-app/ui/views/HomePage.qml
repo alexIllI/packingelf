@@ -12,7 +12,7 @@ ContentPage {
     property int pendingOrders: DashboardVM.pendingOrders
     property int todayProcessed: DashboardVM.todayProcessed
     property int errorJobs: DashboardVM.errorCount
-    property bool hostDbOnline: true        // Phase 2: host-service status
+    property bool hostDbOnline: SyncSvc.hostOnline
     property bool localDbOnline: DashboardVM.localDbOnline
 
     title: qsTr("首頁")
@@ -408,7 +408,7 @@ ContentPage {
                                 anchors.bottomMargin: 0
                                 Rectangle {
                                     id: hostdbIndicator1
-                                    color: Theme.goodColor
+                                    color: homeView.hostDbOnline ? Theme.goodColor : Theme.errorColor
                                     radius: 5
                                     Layout.preferredWidth: 10
                                     Layout.preferredHeight: 10
@@ -418,7 +418,7 @@ ContentPage {
                                 Text {
                                     id: hostdbstatus
                                     color: Theme.header3Color
-                                    text: qsTr("online")
+                                    text: homeView.hostDbOnline ? qsTr("online") : qsTr("offline")
                                     font.pixelSize: Constants.header3FontSize
                                     Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                                 }
@@ -432,6 +432,7 @@ ContentPage {
                         id: hostDBButtonFrame
                         CustomButton {
                             id: home_HostDBTestButton
+                            onClicked: SyncSvc.testConnection()
                             text: qsTr("測試連線")
                             Layout.minimumWidth: 85
                             Layout.minimumHeight: 35
@@ -440,6 +441,7 @@ ContentPage {
 
                         CustomButton {
                             id: home_HostDBReconnectButton
+                            onClicked: SyncSvc.triggerSync()
                             text: qsTr("重新連線")
                             highlighted: true
                             Layout.minimumWidth: 85
@@ -535,7 +537,7 @@ ContentPage {
                     Text {
                         id: home_DBConsoleHeader3
                         color: Theme.header3Color
-                        text: qsTr("POST:")
+                        text: SyncSvc.statusText.length > 0 ? SyncSvc.statusText : qsTr("POST:")
                         font.pixelSize: Constants.header3FontSize
                         Layout.minimumHeight: 50
                         Layout.fillHeight: true

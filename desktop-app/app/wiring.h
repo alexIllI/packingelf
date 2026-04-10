@@ -27,21 +27,24 @@
 
 // Include full headers (not forward declarations) because
 // unique_ptr needs the complete type to call the destructor.
+#include "DashboardViewModel.h"
 #include "Database.h"
 #include "OrdersRepository.h"
 #include "OrdersViewModel.h"
-#include "DashboardViewModel.h"
 #include "ScraperService.h"
+#include "SyncService.h"
 
 // Holds all wired-up application objects.
 // This struct is returned by wireEverything() and kept alive
 // for the entire application lifetime (owned by main()).
 struct WiredApp {
-    std::unique_ptr<Database>            database;      // Local SQLite connection
-    std::shared_ptr<OrdersRepository>    ordersRepo;    // CRUD operations (shared)
-    std::unique_ptr<OrdersViewModel>     ordersVM;      // QML list model for orders
-    std::unique_ptr<DashboardViewModel>  dashboardVM;   // QML metrics for HomePage
-    std::unique_ptr<ScraperService>      scraperSvc;    // Launches scraper.exe via QProcess
+  std::unique_ptr<Database> database;              // Local SQLite connection
+  std::shared_ptr<OrdersRepository> ordersRepo;    // CRUD operations (shared)
+  std::unique_ptr<OrdersViewModel> ordersVM;       // QML list model for orders
+  std::unique_ptr<DashboardViewModel> dashboardVM; // QML metrics for HomePage
+  std::unique_ptr<ScraperService>
+      scraperSvc; // Launches scraper.exe via QProcess
+  std::unique_ptr<SyncService> syncSvc; // Handles host pairing, outbox push, and pull sync
 };
 
 // Creates and connects all application layers.

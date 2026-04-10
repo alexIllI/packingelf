@@ -18,15 +18,15 @@ ContentPage {
     // Connect ScraperSvc signals once (Connections block)
     Connections {
         target: ScraperSvc
-        function onScraperFinished(orderId, result) {
+        function onScraperFinished(submissionId, result) {
             if (result.isSuccess) {
-                printingView.lastResult = qsTr("列印成功 ✔")
+                printingView.lastResult = qsTr("列印成功 ✔");
             } else {
-                printingView.lastResult = qsTr("列印失敗: ") + result.message
+                printingView.lastResult = qsTr("列印失敗: ") + result.message;
             }
         }
-        function onScraperFailed(orderId, reason) {
-            printingView.lastResult = qsTr("錢誤: ") + reason
+        function onScraperFailed(submissionId, reason) {
+            printingView.lastResult = qsTr("錢誤: ") + reason;
         }
     }
 
@@ -141,25 +141,23 @@ ContentPage {
                             enabled: !ScraperSvc.busy
                             onClicked: {
                                 // ─ 1. Get raw inputs ────────────────────────────
-                                var suffix  = orderNumberInput.text.trim();
+                                var suffix = orderNumberInput.text.trim();
                                 var invoice = invoiceNumberInput.text.trim().toUpperCase();
-                                var prefix  = prefixDropdown.currentText || "PG024";
+                                var prefix = prefixDropdown.currentText || "PG024";
                                 printingView.inputError = "";
                                 printingView.lastResult = "";
 
                                 // ─ 2. Validate order suffix: exactly 5 digits ───────────
                                 var suffixRx = /^\d{5}$/;
                                 if (!suffixRx.test(suffix)) {
-                                    printingView.inputError =
-                                        qsTr("貨單後五碼必須為 5 位數字（例：12345）");
+                                    printingView.inputError = qsTr("貨單後五碼必須為 5 位數字（例：12345）");
                                     return;
                                 }
 
                                 // ─ 3. Validate invoice: 2 letters + 7 digits ──────────
                                 var invoiceRx = /^[A-Z]{2}\d{7}$/;
                                 if (!invoiceRx.test(invoice)) {
-                                    printingView.inputError =
-                                        qsTr("發票號碼格式錯誤，應為 2 英文字母 + 7 位數字（例：AB1234567）");
+                                    printingView.inputError = qsTr("發票號碼格式錯誤，應為 2 英文字母 + 7 位數字（例：AB1234567）");
                                     return;
                                 }
 
@@ -169,21 +167,20 @@ ContentPage {
                                 // ─ 5. Check browser is ready ──────────────────────
                                 // browserState: 2 = Ready
                                 if (ScraperSvc.browserState !== 2) {
-                                    printingView.inputError =
-                                        qsTr("瀏覽器未就緒，請到首頁點擊「重新啟動」")
+                                    printingView.inputError = qsTr("瀏覽器未就緒，請到首頁點擊「重新啟動」");
                                     return;
                                 }
 
                                 // ─ 6. Create order in DB, then trigger scraper ───────
-                                var id = OrdersVM.createOrder(fullOrderNumber, invoice);
-                                if (id.length === 0) {
+                                var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
+                                if (submissionId.length === 0) {
                                     printingView.inputError = qsTr("建立資料庭檔失敗");
                                     return;
                                 }
 
                                 // Trigger scraper daemon
-                                ScraperSvc.scrape(id, fullOrderNumber);
-                                printingView.lastResult = qsTr("列印中…")
+                                ScraperSvc.scrape(submissionId, fullOrderNumber);
+                                printingView.lastResult = qsTr("列印中…");
 
                                 // Clear inputs for next entry
                                 orderNumberInput.text = "";
@@ -208,9 +205,7 @@ ContentPage {
                         visible: printingView.inputError !== "" || printingView.lastResult !== ""
                         Text {
                             id: printFeedbackText
-                            text: printingView.inputError !== ""
-                                  ? printingView.inputError
-                                  : printingView.lastResult
+                            text: printingView.inputError !== "" ? printingView.inputError : printingView.lastResult
                             color: printingView.inputError !== "" ? "#ff6060" : Theme.goodColor
                             font.pixelSize: Constants.header3FontSize
                             Layout.fillWidth: true

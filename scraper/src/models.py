@@ -17,6 +17,7 @@ class ScraperStatus(str, Enum):
     # ── Order-level outcomes (not errors, just business states) ──
     ORDER_NOT_FOUND      = "ORDER_NOT_FOUND"
     ORDER_CANCELED       = "ORDER_CANCELED"
+    RETURNED             = "RETURNED"
     STORE_CLOSED         = "STORE_CLOSED"
 
     # ── Login / navigation errors ─────────────────────────────────
