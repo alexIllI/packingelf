@@ -47,6 +47,7 @@ add_executable(packingelf
   services/OutboxStore.cpp
   services/ScraperService.cpp
   services/SyncService.cpp
+  state/AppSettings.cpp
 )
 
 target_include_directories(packingelf PRIVATE app data services viewmodels state)

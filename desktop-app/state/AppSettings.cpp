@@ -1,13 +1,24 @@
 #include "AppSettings.h"
+
+#include <QDir>
 #include <QSettings>
+#include <QStandardPaths>
 
 AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
 {
-    // Uses the default configuration stored in %APPDATA%/Meridian/PackingElf/PackingElf.ini
-    // based on QCoreApplication::setOrganizationName and setApplicationName.
-    QSettings settings;
-    m_orderPrefix = settings.value(QStringLiteral("Settings/OrderPrefix"), 24).toInt();
+    const QString appDataDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(appDataDir);
+
+    m_configFilePath = appDataDir + QStringLiteral("/config.ini");
+
+    QSettings settings(m_configFilePath, QSettings::IniFormat);
+    const int storedPrefix =
+        settings.value(QStringLiteral("Settings/OrderPrefix"), kDefaultOrderPrefix).toInt();
+    m_orderPrefix = sanitizePrefix(storedPrefix);
+    settings.setValue(QStringLiteral("Settings/OrderPrefix"), m_orderPrefix);
+    settings.sync();
 }
 
 int AppSettings::orderPrefix() const
@@ -17,14 +28,16 @@ int AppSettings::orderPrefix() const
 
 void AppSettings::setOrderPrefix(int prefix)
 {
-    if (m_orderPrefix == prefix)
+    const int sanitizedPrefix = sanitizePrefix(prefix);
+    if (m_orderPrefix == sanitizedPrefix)
         return;
 
-    m_orderPrefix = prefix;
-    
-    QSettings settings;
+    m_orderPrefix = sanitizedPrefix;
+
+    QSettings settings(m_configFilePath, QSettings::IniFormat);
     settings.setValue(QStringLiteral("Settings/OrderPrefix"), m_orderPrefix);
-    
+    settings.sync();
+
     emit orderPrefixChanged();
 }
 
@@ -37,5 +50,19 @@ QStringList AppSettings::printingPrefixOptions() const
         options.append(QStringLiteral("PG%1").arg(m_orderPrefix + i, 3, 10, QLatin1Char('0')));
     }
     return options;
+}
+
+QString AppSettings::configFilePath() const
+{
+    return m_configFilePath;
+}
+
+int AppSettings::sanitizePrefix(int prefix) const
+{
+    if (prefix < kMinOrderPrefix)
+        return kMinOrderPrefix;
+    if (prefix > kMaxOrderPrefix)
+        return kMaxOrderPrefix;
+    return prefix;
 }
 

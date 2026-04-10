@@ -28,6 +28,7 @@
 // Include full headers (not forward declarations) because
 // unique_ptr needs the complete type to call the destructor.
 #include "DashboardViewModel.h"
+#include "AppSettings.h"
 #include "Database.h"
 #include "OrdersRepository.h"
 #include "OrdersViewModel.h"
@@ -38,6 +39,7 @@
 // This struct is returned by wireEverything() and kept alive
 // for the entire application lifetime (owned by main()).
 struct WiredApp {
+  std::unique_ptr<AppSettings> appSettings;         // User config stored in AppData
   std::unique_ptr<Database> database;              // Local SQLite connection
   std::shared_ptr<OrdersRepository> ordersRepo;    // CRUD operations (shared)
   std::unique_ptr<OrdersViewModel> ordersVM;       // QML list model for orders

@@ -21,6 +21,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 
+#include "AppSettings.h"
 #include "DashboardViewModel.h"
 #include "OrdersViewModel.h"
 #include "ScraperService.h"
@@ -47,6 +48,8 @@ int main(int argc, char **argv) {
   // ─── Expose ViewModels to QML ───
   // setContextProperty makes these available as global names in QML.
   // Any QML file can reference OrdersVM and DashboardVM directly.
+  engine.rootContext()->setContextProperty(QStringLiteral("AppSettings"),
+                                           wired.appSettings.get());
   engine.rootContext()->setContextProperty(QStringLiteral("OrdersVM"),
                                            wired.ordersVM.get());
   engine.rootContext()->setContextProperty(QStringLiteral("DashboardVM"),
