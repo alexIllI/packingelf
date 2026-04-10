@@ -8,7 +8,6 @@ import PackingElf 1.0
 Control {
     id: root
 
-    // ========= Public API =========
     property int value: 0
     property int from: 0
     property int to: 99
@@ -17,7 +16,6 @@ Control {
 
     signal valueModified
 
-    // Sizing
     implicitWidth: 250
     implicitHeight: 80
     focusPolicy: Qt.ClickFocus
@@ -28,6 +26,7 @@ Control {
             root.valueModified();
         }
     }
+
     function _decrement() {
         if (root.value - root.stepSize >= root.from) {
             root.value -= root.stepSize;
@@ -35,7 +34,6 @@ Control {
         }
     }
 
-    // ========= Background =========
     background: Rectangle {
         id: bg
         radius: 8
@@ -49,6 +47,7 @@ Control {
                 easing.type: Easing.InOutCubic
             }
         }
+
         Behavior on color {
             ColorAnimation {
                 duration: 100
@@ -57,16 +56,18 @@ Control {
         }
     }
 
-    // ========= Content =========
     contentItem: RowLayout {
         spacing: 0
 
-        // Decrement button
         Rectangle {
             id: decrementBtn
             Layout.preferredWidth: 50
             Layout.fillHeight: true
-            color: decMouse.pressed ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15) : decMouse.containsMouse ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08) : "transparent"
+            color: decMouse.pressed
+                ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15)
+                : decMouse.containsMouse
+                    ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                    : "transparent"
             radius: 6
 
             Behavior on color {
@@ -78,7 +79,7 @@ Control {
 
             Text {
                 anchors.centerIn: parent
-                text: "−"
+                text: "-"
                 color: root.value <= root.from ? Theme.borderColor : Theme.primaryColor
                 font.pixelSize: 24
                 font.bold: true
@@ -97,8 +98,6 @@ Control {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root._decrement()
-
-                // Auto-repeat on press-and-hold
                 onPressAndHold: repeatDecTimer.start()
                 onReleased: repeatDecTimer.stop()
                 onExited: repeatDecTimer.stop()
@@ -112,7 +111,6 @@ Control {
             }
         }
 
-        // Separator
         Rectangle {
             Layout.preferredWidth: 1
             Layout.fillHeight: true
@@ -121,7 +119,6 @@ Control {
             color: Qt.rgba(Theme.borderColor.r, Theme.borderColor.g, Theme.borderColor.b, 0.5)
         }
 
-        // Value input
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -135,7 +132,6 @@ Control {
             }
         }
 
-        // Separator
         Rectangle {
             Layout.preferredWidth: 1
             Layout.fillHeight: true
@@ -144,12 +140,15 @@ Control {
             color: Qt.rgba(Theme.borderColor.r, Theme.borderColor.g, Theme.borderColor.b, 0.5)
         }
 
-        // Increment button
         Rectangle {
             id: incrementBtn
             Layout.preferredWidth: 50
             Layout.fillHeight: true
-            color: incMouse.pressed ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15) : incMouse.containsMouse ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08) : "transparent"
+            color: incMouse.pressed
+                ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15)
+                : incMouse.containsMouse
+                    ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                    : "transparent"
             radius: 6
 
             Behavior on color {
@@ -180,7 +179,6 @@ Control {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root._increment()
-
                 onPressAndHold: repeatIncTimer.start()
                 onReleased: repeatIncTimer.stop()
                 onExited: repeatIncTimer.stop()
@@ -195,11 +193,9 @@ Control {
         }
     }
 
-    // ========= Keyboard =========
     Keys.onUpPressed: root._increment()
     Keys.onDownPressed: root._decrement()
 
-    // ========= Accessibility =========
     Accessible.role: Accessible.SpinBox
     Accessible.name: root.valueText
 }

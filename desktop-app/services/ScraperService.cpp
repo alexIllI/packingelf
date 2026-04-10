@@ -1,19 +1,12 @@
-// ─────────────────────────────────────────────────────────────
-// ScraperService.cpp
-// See ScraperService.h for full architecture notes.
-// ─────────────────────────────────────────────────────────────
 #include "ScraperService.h"
 
 #include <QCoreApplication>
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QDebug>
-
-// ─────────────────────────────────────────────────────────────
-// ScraperResult helpers
-// ─────────────────────────────────────────────────────────────
+#include <QProcessEnvironment>
 
 bool ScraperResult::isSuccess() const
 {
@@ -30,71 +23,61 @@ ScraperResult ScraperResult::fromJson(const QByteArray& jsonLine)
     const QJsonDocument doc = QJsonDocument::fromJson(jsonLine.trimmed(), &err);
 
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        r.status  = QStringLiteral("ERROR");
-        r.message = QStringLiteral("Invalid JSON: ") + err.errorString()
-                    + QStringLiteral(" | raw: ") + QString::fromUtf8(jsonLine.left(200));
+        r.status = QStringLiteral("ERROR");
+        r.message = QStringLiteral("Invalid JSON: ")
+            + err.errorString()
+            + QStringLiteral(" | raw: ")
+            + QString::fromUtf8(jsonLine.left(200));
         return r;
     }
 
     const QJsonObject obj = doc.object();
-    r.status      = obj.value(QStringLiteral("status")).toString();
-    r.buyerName   = obj.value(QStringLiteral("buyer_name")).toString();
-    r.orderDate   = obj.value(QStringLiteral("order_date")).toString();
+    r.status = obj.value(QStringLiteral("status")).toString();
+    r.buyerName = obj.value(QStringLiteral("buyer_name")).toString();
+    r.orderDate = obj.value(QStringLiteral("order_date")).toString();
     r.usingCoupon = obj.value(QStringLiteral("using_coupon")).toBool(false);
-    r.message     = obj.value(QStringLiteral("message")).toString();
+    r.message = obj.value(QStringLiteral("message")).toString();
     return r;
 }
-
-// ─────────────────────────────────────────────────────────────
-// ScraperService
-// ─────────────────────────────────────────────────────────────
 
 ScraperService::ScraperService(QObject* parent)
     : QObject(parent)
 {
     const QString appDir = QCoreApplication::applicationDirPath();
 
-    // ── 1. Try production exe (ships next to packingelf.exe) ──────────────
-    // Expected path: <appDir>/scraper/dist/scraper.exe
-    m_scraperExe = QDir(appDir).filePath(
-        QStringLiteral("scraper/dist/scraper.exe"));
-
+    // 1. Try production exe (ships next to packingelf.exe).
+    m_scraperExe = QDir(appDir).filePath(QStringLiteral("scraper/dist/scraper.exe"));
     if (QFileInfo::exists(m_scraperExe)) {
         qInfo() << "[ScraperService] Production mode: using" << m_scraperExe;
         return;
     }
 
-    // ── 2. Dev-mode fallback: walk up the directory tree to find source ───
-    // When running from the build dir (e.g. build/msvc-debug/Debug/),
-    // walk upward until we find the 'scraper/.venv' directory.
-    // Typically 3-5 levels up from the exe depending on the build preset.
+    // 2. Dev-mode fallback: walk up the directory tree to find scraper/.venv.
     QDir dir(appDir);
     for (int i = 0; i < 7; ++i) {
-        const QString python = dir.filePath(
-            QStringLiteral("scraper/.venv/Scripts/python.exe"));
+        const QString python = dir.filePath(QStringLiteral("scraper/.venv/Scripts/python.exe"));
         if (QFileInfo::exists(python)) {
-            m_devMode       = true;
-            m_devPythonExe  = python;
+            m_devMode = true;
+            m_devPythonExe = python;
             m_devWorkingDir = QDir::cleanPath(dir.filePath(QStringLiteral("scraper")));
             qInfo() << "[ScraperService] Dev mode: Python at" << m_devPythonExe;
             qInfo() << "[ScraperService] Dev mode: working dir" << m_devWorkingDir;
             return;
         }
-        if (!dir.cdUp()) break;
+
+        if (!dir.cdUp()) {
+            break;
+        }
     }
 
-    // Neither found — emit an error at runtime when startBrowser() is called.
-    qWarning() << "[ScraperService] scraper.exe not found and dev .venv not found!";
+    qWarning() << "[ScraperService] scraper.exe not found and dev .venv not found";
     qWarning() << "[ScraperService] Run scraper/build.ps1 or ensure .venv exists.";
 }
 
 ScraperService::~ScraperService()
 {
-    // Kill any running process cleanly before we disappear
     cancel();
 }
-
-// ─── Configuration ────────────────────────────────────────────
 
 void ScraperService::setScraperExe(const QString& path)
 {
@@ -111,17 +94,16 @@ void ScraperService::setScrapeTimeoutMs(int ms)
     m_scrapeTimeoutMs = ms;
 }
 
-// ─── Private helpers ──────────────────────────────────────────
-
 void ScraperService::setState(BrowserState s, const QString& text)
 {
     const bool wasBusy = busy();
-    m_state      = s;
+    m_state = s;
     m_statusText = text;
     emit browserStateChanged();
     emit statusTextChanged();
-    if (busy() != wasBusy)
+    if (busy() != wasBusy) {
         emit busyChanged();
+    }
 }
 
 void ScraperService::sendCommand(const QByteArray& jsonLine)
@@ -130,6 +112,7 @@ void ScraperService::sendCommand(const QByteArray& jsonLine)
         qWarning() << "[ScraperService] sendCommand called but process not running";
         return;
     }
+
     const QByteArray line = jsonLine.trimmed() + '\n';
     m_process->write(line);
 }
@@ -141,37 +124,38 @@ void ScraperService::killProcess()
         m_startupTimer->deleteLater();
         m_startupTimer = nullptr;
     }
+
     if (m_scrapeTimer) {
         m_scrapeTimer->stop();
         m_scrapeTimer->deleteLater();
         m_scrapeTimer = nullptr;
     }
+
     if (m_process) {
-        // Try graceful quit first; fall back to kill
         m_process->write("{\"cmd\":\"quit\"}\n");
-        if (!m_process->waitForFinished(2'000))
+        if (!m_process->waitForFinished(2'000)) {
             m_process->kill();
+        }
         m_process->waitForFinished(1'000);
         m_process->deleteLater();
         m_process = nullptr;
     }
+
     m_currentOrderId.clear();
     m_stdoutBuf.clear();
 }
 
-// ─── Public API ───────────────────────────────────────────────
-
 void ScraperService::startBrowser(const QString& accountName)
 {
     if (m_process && m_process->state() != QProcess::NotRunning) {
-        qWarning() << "[ScraperService] startBrowser called while already running — ignoring";
+        qWarning() << "[ScraperService] startBrowser called while already running -- ignoring";
         return;
     }
 
     m_pendingAccount = accountName;
     m_stdoutBuf.clear();
+    m_expectedShutdown = false;
 
-    // Build argument list: scraper.exe daemon --account X  |or|  --manual-login
     QStringList args;
     args << QStringLiteral("daemon");
 
@@ -184,11 +168,12 @@ void ScraperService::startBrowser(const QString& accountName)
     }
 
     m_process = new QProcess(this);
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
+    env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
+    m_process->setProcessEnvironment(env);
 
     if (m_devMode) {
-        // Dev mode: run Python source directly.
-        // Equivalent to:  python -u -m src daemon [--account X | --manual-login]
-        // The -u flag disables Python's stdout buffering so JSON lines arrive promptly.
         m_process->setProgram(m_devPythonExe);
         m_process->setWorkingDirectory(m_devWorkingDir);
         QStringList pythonArgs;
@@ -200,67 +185,64 @@ void ScraperService::startBrowser(const QString& accountName)
         m_process->setProgram(m_scraperExe);
         m_process->setArguments(args);
     }
+
     m_process->setProcessChannelMode(QProcess::SeparateChannels);
 
-    // stdout → line-buffered JSON event parser
     connect(m_process, &QProcess::readyReadStandardOutput,
-            this,      &ScraperService::onReadyReadStdout);
-
-    // stderr → forward to qDebug() (step-by-step logs)
+            this, &ScraperService::onReadyReadStdout);
     connect(m_process, &QProcess::readyReadStandardError,
-            this,      &ScraperService::onReadyReadStderr);
-
+            this, &ScraperService::onReadyReadStderr);
     connect(m_process, &QProcess::finished,
-            this,      &ScraperService::onFinished);
+            this, &ScraperService::onFinished);
     connect(m_process, &QProcess::errorOccurred,
-            this,      &ScraperService::onErrorOccurred);
+            this, &ScraperService::onErrorOccurred);
 
-    // Timeout guard: if {"type":"ready"} doesn't arrive within limit, kill process
     m_startupTimer = new QTimer(this);
     m_startupTimer->setSingleShot(true);
     connect(m_startupTimer, &QTimer::timeout,
-            this,           &ScraperService::onStartupTimeout);
+            this, &ScraperService::onStartupTimeout);
     m_startupTimer->start(m_startupTimeoutMs);
 
-    setState(Starting, QStringLiteral("正在啟動瀏覽器…"));
+    setState(Starting, QStringLiteral("正在啟動瀏覽器..."));
 
     m_process->start();
 
     if (!m_process->waitForStarted(5'000)) {
         qCritical() << "[ScraperService] Failed to start process:" << m_process->errorString();
-        const QString reason = QStringLiteral("無法啟動爬蟲程式: ") + m_process->errorString();
+        const QString reason = QStringLiteral("無法啟動瀏覽器程序: ") + m_process->errorString();
         killProcess();
         setState(Error, reason);
         emit browserDied(reason);
-    } else {
-        qInfo() << "[ScraperService] Daemon PID:" << m_process->processId();
+        return;
     }
+
+    qInfo() << "[ScraperService] Daemon PID:" << m_process->processId();
 }
 
 void ScraperService::restartBrowser(const QString& accountName)
 {
     qInfo() << "[ScraperService] restartBrowser() called";
-    setState(Restarting, QStringLiteral("正在重新啟動瀏覽器…"));
+    setState(Restarting, QStringLiteral("正在重新啟動瀏覽器..."));
+    m_expectedShutdown = true;
 
-    // If a scrape was in flight, notify failure
     if (!m_currentOrderId.isEmpty()) {
         const QString id = m_currentOrderId;
         m_currentOrderId.clear();
         emit scraperFailed(id, QStringLiteral("Browser restarted by user"));
     }
 
-    killProcess();  // Clean kill of old process
+    killProcess();
     startBrowser(accountName.isEmpty() ? m_pendingAccount : accountName);
 }
 
 void ScraperService::calibrate()
 {
     if (m_state == Offline || m_state == Starting || m_state == Restarting) {
-        qWarning() << "[ScraperService] calibrate() ignored — browser not ready";
+        qWarning() << "[ScraperService] calibrate() ignored -- browser not ready";
         return;
     }
 
-    setState(Busy, QStringLiteral("校正中…"));
+    setState(Busy, QStringLiteral("校正中..."));
     sendCommand(R"({"cmd":"calibrate"})");
 }
 
@@ -268,30 +250,27 @@ void ScraperService::scrape(const QString& orderId, const QString& orderNumber)
 {
     if (m_state != Ready) {
         const QString reason = (m_state == Offline || m_state == Error)
-            ? QStringLiteral("瀏覽器未啟動，請先點擊「重新啟動」")
-            : QStringLiteral("瀏覽器正忙，請稍後再試");
-        qWarning() << "[ScraperService] scrape() called but not Ready:"
-                   << m_statusText;
+            ? QStringLiteral("瀏覽器尚未就緒，請先啟動或重新登入。")
+            : QStringLiteral("瀏覽器忙碌中，請稍後再試。");
+        qWarning() << "[ScraperService] scrape() called but not Ready:" << m_statusText;
         emit scraperFailed(orderId, reason);
         return;
     }
 
     m_currentOrderId = orderId;
-    setState(Busy, QStringLiteral("搜尋貨單 %1…").arg(orderNumber));
+    setState(Busy, QStringLiteral("搜尋貨單 %1...").arg(orderNumber));
 
-    // Build {"cmd":"scrape","order_id":"...","order_number":"..."}\n
     const QJsonObject obj{
-        { QStringLiteral("cmd"),          QStringLiteral("scrape") },
-        { QStringLiteral("order_id"),     orderId },
+        { QStringLiteral("cmd"), QStringLiteral("scrape") },
+        { QStringLiteral("order_id"), orderId },
         { QStringLiteral("order_number"), orderNumber },
     };
     sendCommand(QJsonDocument(obj).toJson(QJsonDocument::Compact));
 
-    // Timeout watchdog for scrape
     m_scrapeTimer = new QTimer(this);
     m_scrapeTimer->setSingleShot(true);
     connect(m_scrapeTimer, &QTimer::timeout,
-            this,          &ScraperService::onScrapeTimeout);
+            this, &ScraperService::onScrapeTimeout);
     m_scrapeTimer->start(m_scrapeTimeoutMs);
 
     qInfo() << "[ScraperService] Scrape started for order" << orderNumber;
@@ -299,8 +278,12 @@ void ScraperService::scrape(const QString& orderId, const QString& orderNumber)
 
 void ScraperService::cancel()
 {
-    if (!m_process) return;
-    qInfo() << "[ScraperService] cancel() — killing daemon process";
+    if (!m_process) {
+        return;
+    }
+
+    m_expectedShutdown = true;
+    qInfo() << "[ScraperService] cancel() -- killing daemon process";
 
     if (!m_currentOrderId.isEmpty()) {
         const QString id = m_currentOrderId;
@@ -309,22 +292,20 @@ void ScraperService::cancel()
     }
 
     killProcess();
-    setState(Offline, QStringLiteral("已停止"));
+    setState(Offline, QStringLiteral("已停止瀏覽器"));
 }
-
-// ─── Private slots ────────────────────────────────────────────
 
 void ScraperService::onReadyReadStdout()
 {
     m_stdoutBuf.append(m_process->readAllStandardOutput());
 
-    // Parse every complete line (lines terminated by '\n')
-    int newlineIdx;
+    int newlineIdx = -1;
     while ((newlineIdx = m_stdoutBuf.indexOf('\n')) != -1) {
         const QByteArray line = m_stdoutBuf.left(newlineIdx).trimmed();
         m_stdoutBuf.remove(0, newlineIdx + 1);
-        if (!line.isEmpty())
+        if (!line.isEmpty()) {
             handleEvent(line);
+        }
     }
 }
 
@@ -332,8 +313,9 @@ void ScraperService::onReadyReadStderr()
 {
     const QByteArray err = m_process->readAllStandardError();
     for (const QByteArray& line : err.split('\n')) {
-        if (!line.trimmed().isEmpty())
+        if (!line.trimmed().isEmpty()) {
             qDebug().noquote() << "[scraper]" << QString::fromUtf8(line);
+        }
     }
 }
 
@@ -347,21 +329,23 @@ void ScraperService::handleEvent(const QByteArray& line)
         return;
     }
 
-    const QJsonObject obj  = doc.object();
-    const QString     type = obj.value(QStringLiteral("type")).toString();
+    const QJsonObject obj = doc.object();
+    const QString type = obj.value(QStringLiteral("type")).toString();
 
     if (type == QStringLiteral("ready")) {
-        // Browser logged in and on My Store page
         if (m_startupTimer) {
             m_startupTimer->stop();
             m_startupTimer->deleteLater();
             m_startupTimer = nullptr;
         }
-        setState(Ready, QStringLiteral("瀏覽器就緒"));
+
+        setState(Ready, QStringLiteral("瀏覽器已就緒"));
         emit browserReady();
         qInfo() << "[ScraperService] Browser daemon ready.";
+        return;
+    }
 
-    } else if (type == QStringLiteral("scrape_result")) {
+    if (type == QStringLiteral("scrape_result")) {
         if (m_scrapeTimer) {
             m_scrapeTimer->stop();
             m_scrapeTimer->deleteLater();
@@ -371,52 +355,70 @@ void ScraperService::handleEvent(const QByteArray& line)
         const QString orderId = obj.value(QStringLiteral("order_id")).toString();
         const ScraperResult result = ScraperResult::fromJson(line);
 
-        setState(Ready, QStringLiteral("瀏覽器就緒"));
+        setState(Ready, QStringLiteral("瀏覽器已就緒"));
         m_currentOrderId.clear();
 
-        qInfo() << "[ScraperService] Scrape result for order" << orderId
-                << "→" << result.status;
+        qInfo() << "[ScraperService] Scrape result for order" << orderId << "->" << result.status;
         emit scraperFinished(orderId, result);
+        return;
+    }
 
-    } else if (type == QStringLiteral("calibrate_result")) {
-        const bool ok  = obj.value(QStringLiteral("ok")).toBool();
+    if (type == QStringLiteral("calibrate_result")) {
+        const bool ok = obj.value(QStringLiteral("ok")).toBool();
         const QString msg = obj.value(QStringLiteral("message")).toString();
         setState(Ready, ok ? QStringLiteral("校正完成") : QStringLiteral("校正失敗"));
         qInfo() << "[ScraperService] Calibrate result: ok=" << ok << msg;
+        return;
+    }
 
-    } else if (type == QStringLiteral("pong")) {
+    if (type == QStringLiteral("pong")) {
         qDebug() << "[ScraperService] pong received";
+        return;
+    }
 
-    } else if (type == QStringLiteral("error")) {
+    if (type == QStringLiteral("error")) {
         const QString msg = obj.value(QStringLiteral("msg")).toString();
         qWarning() << "[ScraperService] Daemon error event:" << msg;
-        // If we're expecting a scrape result, fail it
         if (!m_currentOrderId.isEmpty()) {
             const QString id = m_currentOrderId;
             m_currentOrderId.clear();
-            if (m_scrapeTimer) { m_scrapeTimer->stop(); m_scrapeTimer->deleteLater(); m_scrapeTimer = nullptr; }
-            setState(Ready, QStringLiteral("瀏覽器就緒 (上次發生錯誤)"));
+            if (m_scrapeTimer) {
+                m_scrapeTimer->stop();
+                m_scrapeTimer->deleteLater();
+                m_scrapeTimer = nullptr;
+            }
+            setState(Ready, QStringLiteral("瀏覽器已就緒 (抓單失敗)"));
             emit scraperFailed(id, msg);
         }
-    } else {
-        qWarning() << "[ScraperService] Unknown event type:" << type;
+        return;
     }
+
+    qWarning() << "[ScraperService] Unknown event type:" << type;
 }
 
 void ScraperService::onFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    // Flush any remaining stdout
-    if (m_process)
+    if (m_process) {
         onReadyReadStdout();
+    }
 
-    qWarning() << "[ScraperService] Daemon process exited. code=" << exitCode
-               << "status=" << exitStatus;
+    const bool expectedShutdown = m_expectedShutdown;
+    m_expectedShutdown = false;
 
-    const QString reason = exitStatus == QProcess::CrashExit
-        ? QStringLiteral("瀏覽器程序崩潰")
-        : QStringLiteral("瀏覽器程序已結束 (code=%1)").arg(exitCode);
+    if (expectedShutdown) {
+        qInfo() << "[ScraperService] Daemon process stopped. code=" << exitCode
+                << "status=" << exitStatus;
+    } else {
+        qWarning() << "[ScraperService] Daemon process exited. code=" << exitCode
+                   << "status=" << exitStatus;
+    }
 
-    // If a scrape was in flight, fail it
+    const QString reason = expectedShutdown
+        ? QStringLiteral("瀏覽器已停止")
+        : (exitStatus == QProcess::CrashExit
+            ? QStringLiteral("瀏覽器程序異常結束")
+            : QStringLiteral("瀏覽器程序已結束 (code=%1)").arg(exitCode));
+
     if (!m_currentOrderId.isEmpty()) {
         const QString id = m_currentOrderId;
         m_currentOrderId.clear();
@@ -425,37 +427,36 @@ void ScraperService::onFinished(int exitCode, QProcess::ExitStatus exitStatus)
 
     killProcess();
 
-    // Only update state if we're not already in Restarting
-    // (restartBrowser() calls killProcess then startBrowser, so we skip this)
     if (m_state != Restarting) {
-        setState(Offline, QStringLiteral("瀏覽器已關閉"));
+        setState(Offline, QStringLiteral("瀏覽器已離線"));
         emit browserDied(reason);
     }
 }
 
 void ScraperService::onErrorOccurred(QProcess::ProcessError error)
 {
-    // Only handle FailedToStart here — other errors also fire onFinished.
-    if (error == QProcess::FailedToStart) {
-        const QString reason = QStringLiteral("找不到爬蟲程式或無法執行: ") + m_scraperExe;
-        qCritical() << "[ScraperService]" << reason;
-
-        if (!m_currentOrderId.isEmpty()) {
-            const QString id = m_currentOrderId;
-            m_currentOrderId.clear();
-            emit scraperFailed(id, reason);
-        }
-
-        killProcess();
-        setState(Error, reason);
-        emit browserDied(reason);
+    if (error != QProcess::FailedToStart) {
+        return;
     }
+
+    const QString reason = QStringLiteral("無法啟動抓單程式: ") + m_scraperExe;
+    qCritical() << "[ScraperService]" << reason;
+
+    if (!m_currentOrderId.isEmpty()) {
+        const QString id = m_currentOrderId;
+        m_currentOrderId.clear();
+        emit scraperFailed(id, reason);
+    }
+
+    killProcess();
+    setState(Error, reason);
+    emit browserDied(reason);
 }
 
 void ScraperService::onStartupTimeout()
 {
-    qWarning() << "[ScraperService] Startup timed out — killing process";
-    const QString reason = QStringLiteral("啟動逾時：瀏覽器未能在時限內就緒");
+    qWarning() << "[ScraperService] Startup timed out -- killing process";
+    const QString reason = QStringLiteral("啟動逾時，瀏覽器未在時限內就緒。");
     killProcess();
     setState(Error, reason);
     emit browserDied(reason);
@@ -465,10 +466,9 @@ void ScraperService::onScrapeTimeout()
 {
     qWarning() << "[ScraperService] Scrape timed out for order" << m_currentOrderId;
     const QString id = m_currentOrderId;
-    // Don't kill the whole daemon — just report a timeout.
-    // The browser may still be usable after the page times out.
+
     m_currentOrderId.clear();
-    m_scrapeTimer = nullptr;  // Already fired, will be deleted by Qt ownership
-    setState(Ready, QStringLiteral("瀏覽器就緒 (上次逾時)"));
-    emit scraperFailed(id, QStringLiteral("TIMEOUT: 爬蟲超過最大等待時間"));
+    m_scrapeTimer = nullptr;
+    setState(Ready, QStringLiteral("瀏覽器已就緒 (抓單逾時)"));
+    emit scraperFailed(id, QStringLiteral("TIMEOUT: 抓單等待逾時，請稍後再試。"));
 }
