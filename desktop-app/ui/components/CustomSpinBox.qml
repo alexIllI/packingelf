@@ -13,6 +13,7 @@ Control {
     property int from: 0
     property int to: 99
     property int stepSize: 1
+    property string valueText: root.value.toString()
 
     signal valueModified
 
@@ -127,7 +128,7 @@ Control {
 
             Text {
                 anchors.centerIn: parent
-                text: root.value.toString()
+                text: root.valueText
                 color: Theme.header3Color
                 font.pixelSize: 32
                 font.bold: true
@@ -200,5 +201,5 @@ Control {
 
     // ========= Accessibility =========
     Accessible.role: Accessible.SpinBox
-    Accessible.name: root.value.toString()
+    Accessible.name: root.valueText
 }

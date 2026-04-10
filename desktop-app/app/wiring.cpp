@@ -6,6 +6,7 @@
 WiredApp wireEverything() {
   WiredApp app;
 
+  app.appSettings = std::make_unique<AppSettings>();
   app.database = std::make_unique<Database>();
   if (!app.database->open()) {
     qWarning() << "[Wiring] Database failed to open!";
