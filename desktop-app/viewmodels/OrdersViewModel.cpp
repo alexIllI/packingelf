@@ -82,6 +82,33 @@ QString OrdersViewModel::submitForScrape(const QString& orderNumber,
     return submission->submissionId;
 }
 
+QString OrdersViewModel::orderNumberAt(int row) const
+{
+    if (row < 0 || row >= m_orders.size())
+        return {};
+
+    return m_orders.at(row).orderNumber;
+}
+
+QVariantMap OrdersViewModel::orderDetailsByOrderNumber(const QString& orderNumber) const
+{
+    QVariantMap details;
+    const auto order = m_repo->fetchByOrderNumber(orderNumber);
+    if (!order.has_value())
+        return details;
+
+    details.insert(QStringLiteral("id"), order->id);
+    details.insert(QStringLiteral("orderNumber"), order->orderNumber);
+    details.insert(QStringLiteral("invoiceNumber"), order->invoiceNumber);
+    details.insert(QStringLiteral("orderDate"), order->orderDate);
+    details.insert(QStringLiteral("buyerName"), order->buyerName);
+    details.insert(QStringLiteral("status"), order->orderStatus);
+    details.insert(QStringLiteral("usingCoupon"), order->usingCoupon);
+    details.insert(QStringLiteral("createdAt"), order->createdAt);
+    details.insert(QStringLiteral("updatedAt"), order->updatedAt);
+    return details;
+}
+
 bool OrdersViewModel::removeOrder(int row)
 {
     if (row < 0 || row >= m_orders.size())
@@ -120,8 +147,8 @@ std::optional<QString> OrdersViewModel::normalizeStatus(const QString& scraperSt
         return QStringLiteral("success");
     if (normalized == QStringLiteral("ORDER_CANCELED") || normalized == QStringLiteral("CANCELED"))
         return QStringLiteral("canceled");
-    if (normalized == QStringLiteral("RETURNED"))
-        return QStringLiteral("returned");
+    if (normalized == QStringLiteral("STORE_CLOSED") || normalized == QStringLiteral("CLOSED"))
+        return QStringLiteral("closed");
     return std::nullopt;
 }
 

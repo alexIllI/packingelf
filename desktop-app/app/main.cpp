@@ -24,6 +24,7 @@
 #include "AppSettings.h"
 #include "DashboardViewModel.h"
 #include "OrdersViewModel.h"
+#include "PendingOrdersViewModel.h"
 #include "ScraperService.h"
 #include "SyncService.h"
 #include "wiring.h"
@@ -52,6 +53,8 @@ int main(int argc, char **argv) {
                                            wired.appSettings.get());
   engine.rootContext()->setContextProperty(QStringLiteral("OrdersVM"),
                                            wired.ordersVM.get());
+  engine.rootContext()->setContextProperty(QStringLiteral("PendingOrdersVM"),
+                                           wired.pendingOrdersVM.get());
   engine.rootContext()->setContextProperty(QStringLiteral("DashboardVM"),
                                            wired.dashboardVM.get());
   // ScraperSvc.scrape(orderId, orderNumber, accountName) → QML triggers a

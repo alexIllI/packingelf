@@ -41,6 +41,14 @@ struct SyncConfig {
     QString lastDiscoveryAt;
 };
 
+struct PendingOrder {
+    QString id;
+    QString orderNumber;
+    QString remark;
+    QString createdAt;
+    QString updatedAt;
+};
+
 class OrdersRepository {
 public:
     explicit OrdersRepository(QSqlDatabase& db);
@@ -64,6 +72,11 @@ public:
                                const QString& errorMessage = QString());
     bool deleteSubmission(const QString& submissionId);
 
+    QVector<PendingOrder> fetchPendingOrders() const;
+    std::optional<PendingOrder> createPendingOrder(const QString& orderNumber,
+                                                   const QString& remark);
+    bool deletePendingOrder(const QString& id);
+
     int countAll() const;
     int countToday() const;
     int countPendingSubmissions() const;
@@ -75,6 +88,7 @@ public:
 private:
     Order rowToOrder(const class QSqlQuery& q) const;
     ScrapeSubmission rowToSubmission(const class QSqlQuery& q) const;
+    PendingOrder rowToPendingOrder(const class QSqlQuery& q) const;
     std::optional<SyncConfig> readSyncConfig() const;
 
     QSqlDatabase& m_db;

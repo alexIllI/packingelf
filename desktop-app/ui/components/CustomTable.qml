@@ -9,33 +9,27 @@ import PackingElf 1.0
 Rectangle {
     id: root
 
-    // ========= Public API =========
-
-    // Column definitions: list of objects with "title" and "width" (fractional, e.g. 0.3 = 30%)
-    // Example: [{ title: "貨單號碼", width: 0.4 }, { title: "狀態", width: 0.3 }, { title: "日期", width: 0.3 }]
+    // Column definitions: list of objects with "title", "role", and "width".
+    // Example: [{ title: "貨單號碼", role: "orderNumber", width: 0.4 }]
     property var columns: []
 
-    // Data model — assign a ListModel or JS array
-    // Each element should have properties matching column access via "role" or accessed by index
+    // Data model: assign a ListModel, QAbstractItemModel, or JS array.
     property alias model: listView.model
 
-    // Currently selected row index (-1 = none)
+    // Currently selected row index (-1 = none).
     property int currentIndex: -1
 
-    // Row height
+    // Row height in pixels.
     property int rowHeight: 36
 
-    // Emitted when a row is clicked
     signal rowClicked(int index)
 
-    // ========= Appearance =========
     color: "transparent"
     radius: 8
     border.color: Theme.borderColor
     border.width: 1
     clip: true
 
-    // ========= Header =========
     Rectangle {
         id: header
         anchors.top: parent.top
@@ -45,7 +39,6 @@ Rectangle {
         color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.18)
         radius: root.radius
 
-        // Bottom corners should be square (header only rounds top)
         Rectangle {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -65,7 +58,7 @@ Rectangle {
 
                 Text {
                     required property int index
-                    width: (headerRow.width) * (root.columns[index].width ?? (1.0 / root.columns.length))
+                    width: headerRow.width * (root.columns[index].width ?? (1.0 / root.columns.length))
                     height: headerRow.height
                     text: root.columns[index].title ?? ""
                     color: Theme.primaryColor
@@ -78,7 +71,6 @@ Rectangle {
             }
         }
 
-        // Bottom separator line
         Rectangle {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -88,7 +80,6 @@ Rectangle {
         }
     }
 
-    // ========= Row list =========
     ListView {
         id: listView
         anchors.top: header.bottom
@@ -136,7 +127,6 @@ Rectangle {
             width: listView.width
             height: root.rowHeight
 
-            // Alternating colors + selection highlight
             color: root.currentIndex === rowDelegate.index
                 ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.22)
                 : rowDelegate.index % 2 === 0
@@ -147,7 +137,6 @@ Rectangle {
                 ColorAnimation { duration: 80; easing.type: Easing.OutCubic }
             }
 
-            // Hover overlay
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
@@ -165,7 +154,6 @@ Rectangle {
                 }
             }
 
-            // Row content
             Row {
                 id: rowContent
                 anchors.fill: parent
@@ -177,7 +165,7 @@ Rectangle {
 
                     Text {
                         required property int index
-                        width: (rowContent.width) * (root.columns[index].width ?? (1.0 / root.columns.length))
+                        width: rowContent.width * (root.columns[index].width ?? (1.0 / root.columns.length))
                         height: rowContent.height
                         text: {
                             var role = root.columns[index].role ?? "";
@@ -194,7 +182,6 @@ Rectangle {
                 }
             }
 
-            // Row separator
             Rectangle {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
@@ -204,7 +191,6 @@ Rectangle {
             }
         }
 
-        // Empty state
         Text {
             anchors.centerIn: parent
             text: qsTr("目前沒有資料")
