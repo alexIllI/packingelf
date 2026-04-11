@@ -29,10 +29,23 @@ Control {
     signal activated(int index, var value, string text)
 
     // ========= Helpers =========
+    function _isSequenceModel(value) {
+        return value !== null
+            && value !== undefined
+            && typeof value !== "string"
+            && typeof value.length === "number";
+    }
+    function _itemAt(i) {
+        if (i < 0 || i >= _count())
+            return undefined;
+        if (Array.isArray(model) || _isSequenceModel(model))
+            return model[i];
+        return model.get ? model.get(i) : model[i];
+    }
     function _count() {
         if (model === null || model === undefined)
             return 0;
-        if (Array.isArray(model))
+        if (Array.isArray(model) || _isSequenceModel(model))
             return model.length;
         if (typeof model.count === "number")
             return model.count; // ListModel / QAbstractItemModel
@@ -41,21 +54,21 @@ Control {
     function _textAt(i) {
         if (i < 0 || i >= _count())
             return "";
-        if (Array.isArray(model))
-            return String(model[i]);
-        const it = model.get ? model.get(i) : model[i];
+        const it = _itemAt(i);
         if (it === undefined || it === null)
             return "";
+        if (typeof it !== "object")
+            return String(it);
         return (it[textRole] !== undefined ? it[textRole] : (it.display ?? it.name ?? it.title ?? ""));
     }
     function _valueAt(i) {
         if (i < 0 || i >= _count())
             return undefined;
-        if (Array.isArray(model))
-            return model[i];
-        const it = model.get ? model.get(i) : model[i];
+        const it = _itemAt(i);
         if (it === undefined || it === null)
             return undefined;
+        if (typeof it !== "object")
+            return it;
         return (it[valueRole] !== undefined ? it[valueRole] : (it[textRole] !== undefined ? it[textRole] : it));
     }
 
@@ -180,7 +193,7 @@ Control {
 
                 width: ListView.view.width
                 height: root.delegateHeight
-                text: Array.isArray(root.model) ? String(model.modelData) : (model[root.textRole] ?? model.display ?? model.name ?? model.title ?? "")
+                text: root._textAt(index)
                 highlighted: ListView.isCurrentItem
                 onClicked: root.delegateSelect(index)
                 // theming

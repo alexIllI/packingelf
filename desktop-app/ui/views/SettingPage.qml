@@ -6,8 +6,8 @@ import PackingElf 1.0
 ContentPage {
     id: settingView
     anchors.fill: parent
-    title: qsTr("Settings")
-    subtitle: qsTr("Manage the default prefix used by Printing")
+    title: qsTr("設定")
+    subtitle: qsTr("管理列印頁面的預設貨單前綴")
 
     readonly property int defaultPrefix: 24
     readonly property int minPrefix: 2
@@ -52,7 +52,7 @@ ContentPage {
 
                 Text {
                     color: Theme.header3Color
-                    text: qsTr("Order Prefix")
+                    text: qsTr("貨單前綴")
                     font.pixelSize: Constants.header3FontSize
                 }
 
@@ -70,7 +70,7 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Choose the middle prefix. The app will keep two previous and two next options ready for Printing.")
+                            text: qsTr("請選擇中間的前綴號碼，列印頁面會自動顯示前兩個與後兩個可選項目。")
                             font.pixelSize: Constants.header3FontSize
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
@@ -78,7 +78,7 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Saved default: ") + formatPrefix(savedPrefix)
+                            text: qsTr("目前預設值：") + formatPrefix(savedPrefix)
                             font.pixelSize: Constants.header3FontSize
                         }
 
@@ -93,13 +93,13 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Preview")
+                            text: qsTr("預覽")
                             font.pixelSize: Constants.header3FontSize
                         }
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Printing will show these five prefix choices, with the center value selected by default.")
+                            text: qsTr("列印頁面會顯示以下五個前綴，並預設選取中間值。")
                             font.pixelSize: Constants.header3FontSize
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
@@ -142,7 +142,7 @@ ContentPage {
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             color: Theme.headerSubColor
-                                            text: isSelected ? qsTr("Default") : qsTr("Option")
+                                            text: isSelected ? qsTr("預設") : qsTr("選項")
                                             font.pixelSize: 12
                                         }
                                     }
@@ -152,7 +152,7 @@ ContentPage {
 
                         Text {
                             color: Theme.headerSubColor
-                            text: qsTr("Config file: ") + (AppSettings ? AppSettings.configFilePath : "")
+                            text: qsTr("設定檔位置：") + (AppSettings ? AppSettings.configFilePath : "")
                             font.pixelSize: 12
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
@@ -166,14 +166,14 @@ ContentPage {
             Layout.alignment: Qt.AlignRight | Qt.AlignBottom
 
             CustomButton {
-                text: qsTr("Reset")
+                text: qsTr("重設")
                 onClicked: {
                     prefixSpinBox.value = settingView.defaultPrefix;
                 }
             }
 
             CustomButton {
-                text: qsTr("Cancel")
+                text: qsTr("取消")
                 enabled: settingView.hasUnsavedChanges
                 onClicked: {
                     prefixSpinBox.value = settingView.savedPrefix;
@@ -181,7 +181,7 @@ ContentPage {
             }
 
             CustomButton {
-                text: qsTr("Save")
+                text: qsTr("儲存")
                 highlighted: true
                 enabled: settingView.hasUnsavedChanges
                 onClicked: {

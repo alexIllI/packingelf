@@ -179,6 +179,7 @@ private:
     QString      m_pendingAccount;           // Account name for current/next startBrowser
     QString      m_currentOrderId;          // orderId of the in-flight scrape
     QByteArray   m_stdoutBuf;               // Accumulates partial stdout lines
+    bool         m_expectedShutdown = false;
 
     // ── Executable discovery (set once in constructor) ────────────────
     // Production: m_scraperExe is the path to scraper.exe

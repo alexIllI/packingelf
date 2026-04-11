@@ -73,7 +73,7 @@ class MyAcgScraper:
 
     async def start(self) -> None:
         """Launch Playwright + Chromium. Call once before any other method."""
-        log("Starting Playwright/Chromium…")
+        log("Starting Playwright/Chromium...")
         self._pw      = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(
             headless=self._headless,
@@ -100,7 +100,7 @@ class MyAcgScraper:
 
     async def close(self) -> None:
         """Close the browser and stop Playwright. Safe to call multiple times."""
-        log("Closing browser…")
+        log("Closing browser...")
         try:
             if self._context: await self._context.close()
             if self._browser: await self._browser.close()
@@ -114,7 +114,7 @@ class MyAcgScraper:
         Playwright dialog event. Captures the message and auto-accepts.
         The old code had manual switch_to.alert — this is cleaner.
         """
-        log(f"  ⚠ Browser dialog: \"{dialog.message}\"")
+        log(f"  [warning] Browser dialog: \"{dialog.message}\"")
         self._last_dialog = dialog.message
         asyncio.ensure_future(dialog.accept())
 
@@ -125,7 +125,7 @@ class MyAcgScraper:
         Auto-fills login form with stored credentials and submits.
         Returns None on success, ScrapeResult on failure.
         """
-        log(f"Navigating to login page…")
+        log("Navigating to login page...")
         try:
             await self._page.goto(LOGIN_URL, timeout=TIMEOUT_LONG,
                                   wait_until="domcontentloaded")
@@ -133,7 +133,7 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.NETWORK_ERROR,
                                 message=f"Cannot reach login page: {e}")
 
-        log("Filling account field…")
+        log("Filling account field...")
         try:
             await self._page.wait_for_selector('[name="account"]',
                                               timeout=TIMEOUT_NORMAL)
@@ -143,15 +143,15 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.LOGIN_FAILED,
                                 message=f"Account field not found: {e}")
 
-        log("Filling password field…")
+        log("Filling password field...")
         try:
             await self._page.fill('[name="password"]', password)
-            log("  Password: ●●●●●●")
+            log("  Password: ******")
         except Exception as e:
             return ScrapeResult(ScraperStatus.LOGIN_FAILED,
                                 message=f"Password field not found: {e}")
 
-        log("Clicking login button…")
+        log("Clicking login button...")
         try:
             btn = self._page.locator(
                 'xpath=//*[@id="form1"]/div/div/div[2]/div[5]/div[1]/a'
@@ -172,7 +172,7 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.LOGIN_FAILED,
                                 message=f"Site alert: {self._last_dialog}")
 
-        log("Credentials submitted — waiting for post-login page…")
+        log("Credentials submitted - waiting for post-login page...")
         return None   # success
 
     async def login_manual(self) -> Optional[ScrapeResult]:
@@ -192,13 +192,13 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.NETWORK_ERROR,
                                 message=f"Cannot reach login page: {e}")
 
-        log("─────────────────────────────────────────────")
+        log("---------------------------------------------")
         log(">>> Please type your credentials in the browser window.")
         log(">>> Press the LOGIN button yourself when ready.")
         log(">>> The scraper will resume automatically once it detects")
         log(">>> that you have successfully logged in.")
         log(">>> You have 90 seconds.")
-        log("─────────────────────────────────────────────")
+        log("---------------------------------------------")
 
         try:
             # Wait for URL to change away from login.php
@@ -206,7 +206,7 @@ class MyAcgScraper:
                 lambda url: "login.php" not in url,
                 timeout=TIMEOUT_MANUAL,
             )
-            log("Login detected!  Resuming automation…")
+            log("Login detected! Resuming automation...")
             return None   # success
         except PlaywrightTimeout:
             return ScrapeResult(
@@ -221,7 +221,7 @@ class MyAcgScraper:
         Click '我的賣場' (My Store) after login.
         The old code located '//*[@id="topbar"]/div/ul/li[1]/a'.
         """
-        log("Navigating to 我的賣場 (My Store)…")
+        log("Navigating to My Store...")
         try:
             el = self._page.locator(
                 'xpath=//*[@id="topbar"]/div/ul/li[1]/a'
@@ -247,12 +247,12 @@ class MyAcgScraper:
         Returns a dict suitable for JSON: {"ok": bool, "url": str, "message": str}
         Called by the daemon command handler when C++ sends {"cmd": "calibrate"}.
         """
-        log("══════ Calibrate ══════")
+        log("====== Calibrate ======")
 
         # ── 1. Close extra tabs ────────────────────────────
         pages = self._context.pages
         if len(pages) > 1:
-            log(f"  Closing {len(pages) - 1} extra tab(s)…")
+            log(f"  Closing {len(pages) - 1} extra tab(s)...")
             for p in pages[1:]:
                 try:
                     await p.close()
@@ -271,7 +271,7 @@ class MyAcgScraper:
 
         STORE_URL_MARKER = "myacg.com.tw/seller"
         if STORE_URL_MARKER not in current_url:
-            log("  Not on store page — re-navigating…")
+            log("  Not on store page - re-navigating...")
             err = await self.navigate_to_store()
             if err:
                 log(f"  Re-navigation failed: {err.message}")
@@ -280,7 +280,7 @@ class MyAcgScraper:
             current_url = self._page.url
             log(f"  Re-navigated to: {current_url}")
 
-        log("══════ Calibrate complete ══════")
+        log("====== Calibrate complete ======")
         return {"ok": True, "url": current_url, "message": "Calibrated successfully"}
 
     # ── Order scraping ────────────────────────────────────────────
@@ -292,19 +292,19 @@ class MyAcgScraper:
 
         Selectors verified against live myacg.com.tw seller dashboard HTML.
         """
-        log(f"══════ Scraping order: {order_number} ══════")
+        log(f"====== Scraping order: {order_number} ======")
 
         # ── 0. Sanity: close any stray extra tabs ─────────────────
         pages = self._context.pages
         if len(pages) > 1:
-            log(f"  WARNING: {len(pages)} tabs open — closing extras…")
+            log(f"  WARNING: {len(pages)} tabs open - closing extras...")
             for p in pages[1:]:
                 try: await p.close()
                 except: pass
 
         # ── 1. Fill search bar and submit ─────────────────────────
         # Real element: <input type="text" id="o_num" name="o_num" ...>
-        log("  Step 1/9 — Searching for order…")
+        log("  Step 1/9 - Searching for order...")
         try:
             sb = self._page.locator('#o_num')
             await sb.wait_for(state="visible", timeout=TIMEOUT_NORMAL)
@@ -328,7 +328,7 @@ class MyAcgScraper:
             search_btn = self._page.locator('a[onclick="query();"]')
             await search_btn.wait_for(state="visible", timeout=TIMEOUT_NORMAL)
             await search_btn.evaluate("el => el.click()")
-            log("    Search button clicked (JS evaluate — no nav wait).")
+            log("    Search button clicked (JS evaluate - no nav wait).")
         except Exception as e:
             return ScrapeResult(ScraperStatus.ERROR,
                                 message=f"Search button not found: {e}")
@@ -340,43 +340,43 @@ class MyAcgScraper:
                 timeout=TIMEOUT_NORMAL
             )
         except Exception as e:
-            log(f"    Warning — results selector timed out: {e}")
+            log(f"    Warning - results selector timed out: {e}")
 
         # ── 2. Check: order exists? ───────────────────────────────
         # Real element: <div class="search_no_data2"> ... 您沒有訂單 ...
-        log("  Step 2/9 — Checking if order exists…")
+        log("  Step 2/9 - Checking if order exists...")
         try:
             no_data = self._page.locator('.search_no_data2')
             if await no_data.is_visible(timeout=TIMEOUT_SHORT):
-                log("    → ORDER_NOT_FOUND (.search_no_data2 present)")
+                log("    -> ORDER_NOT_FOUND (.search_no_data2 present)")
                 return ScrapeResult(ScraperStatus.ORDER_NOT_FOUND)
         except: pass
 
         # ── 3. Check: canceled? ───────────────────────────────────
         # Real element: <span class="t_red">取消原因</span>
-        log("  Step 3/9 — Checking if order is canceled…")
+        log("  Step 3/9 - Checking if order is canceled...")
         try:
             canceled = self._page.locator(
                 'xpath=//span[@class="t_red" and contains(normalize-space(text()),"取消原因")]'
             )
             if await canceled.is_visible(timeout=TIMEOUT_SHORT):
-                log("    → ORDER_CANCELED")
+                log("    -> ORDER_CANCELED")
                 return ScrapeResult(ScraperStatus.ORDER_CANCELED)
         except: pass
 
         # ── 4. Check: store/order closed? ────────────────────────
         # Real element: <span class="t_red" data-state="close">關轉中，等待重選門市</span>
-        log("  Step 4/9 — Checking if order is closed…")
+        log("  Step 4/9 - Checking if order is closed...")
         try:
             closed = self._page.locator('[data-state="close"]')
             if await closed.is_visible(timeout=TIMEOUT_SHORT):
-                log("    → STORE_CLOSED (data-state=close)")
+                log("    -> STORE_CLOSED (data-state=close)")
                 return ScrapeResult(ScraperStatus.STORE_CLOSED)
         except: pass
 
         # ── 5. Coupon detection ───────────────────────────────────
         # Old code: td[6]/p element — keeping same XPATH as it targets a specific cell
-        log("  Step 5/9 — Checking coupon usage…")
+        log("  Step 5/9 - Checking coupon usage...")
         using_coupon = False
         try:
             coupon_el = self._page.locator(
@@ -393,7 +393,7 @@ class MyAcgScraper:
         # ── 6. Extract order date ─────────────────────────────────
         # Real element: <div class="order_process_text_orange">下單完成 <br> 2026-03-30 11:08:21</div>
         # The FIRST orange block = order creation date. Text split by \n → last line is the date.
-        log("  Step 6/9 — Extracting order date…")
+        log("  Step 6/9 - Extracting order date...")
         order_date: Optional[str] = None
         try:
             date_el  = self._page.locator(".order_process_text_orange").first
@@ -401,13 +401,13 @@ class MyAcgScraper:
             order_date = full_txt.split("\n")[-1].strip()
             log(f"    Order date: {order_date}")
         except Exception as e:
-            log(f"    Warning — order date not found: {e}")
+            log(f"    Warning - order date not found: {e}")
 
         # ── 7. Extract buyer name ─────────────────────────────────
         # Real element:
         #   <span style="max-width:100px;...">買家: phiip4607</span>
         # XPath: find first span whose text contains '買家:'
-        log("  Step 7/9 — Extracting buyer name…")
+        log("  Step 7/9 - Extracting buyer name...")
         buyer_name: Optional[str] = None
         try:
             buyer_el = self._page.locator(
@@ -417,7 +417,7 @@ class MyAcgScraper:
             buyer_name = buyer_text.replace("買家:", "").strip()
             log(f"    Buyer name: {buyer_name}")
         except Exception as e:
-            log(f"    Warning — buyer name not found: {e}")
+            log(f"    Warning - buyer name not found: {e}")
 
         # ── 8. Click order checkbox ───────────────────────────────
         # Real element: magic-checkbox pattern
@@ -430,7 +430,7 @@ class MyAcgScraper:
         # document.getElementById().click() directly from page JS — identical to
         # what the old Selenium execute_script("arguments[0].click()", el) did.
         numeric_id = order_number[3:]
-        log(f"  Step 8/9 — Clicking checkbox via JS (oid_check_{numeric_id})…")
+        log(f"  Step 8/9 - Clicking checkbox via JS (oid_check_{numeric_id})...")
         try:
             clicked = await self._page.evaluate(f"""
                 (() => {{
@@ -470,7 +470,7 @@ class MyAcgScraper:
         # For printing: window.print() works AS LONG AS the browser's default
         # printer is set to a physical printer (not "Save as PDF").
         # This is the same approach as the old Selenium execute_script('window.print()').
-        log("  Step 9/9 — Clicking BatchPrint button (PrintBatch_2)…")
+        log("  Step 9/9 - Clicking BatchPrint button (PrintBatch_2)...")
         try:
             # Trigger click AND wait for the new tab simultaneously
             async with self._context.expect_page(timeout=TIMEOUT_LONG) as new_page_info:
@@ -478,7 +478,7 @@ class MyAcgScraper:
                     "document.getElementById('PrintBatch_2').click()"
                 )
             print_page = await new_page_info.value
-            log("  Print tab opened — switched to it.")
+            log("  Print tab opened - switched to it.")
         except Exception as e:
             # A dialog may have fired instead of a new tab (e.g. store closed warning)
             if self._last_dialog:
@@ -501,7 +501,7 @@ class MyAcgScraper:
             await print_page.wait_for_load_state("domcontentloaded", timeout=TIMEOUT_LONG)
             log("  Print page DOM loaded.")
         except Exception as e:
-            log(f"  Warning — print page load slow: {e}")
+            log(f"  Warning - print page load slow: {e}")
 
         # Trigger print dialog — same method as old Selenium execute_script("window.print()")
         # Requires browser default printer to be a physical printer (not PDF).
@@ -509,17 +509,17 @@ class MyAcgScraper:
             await print_page.evaluate("() => window.print()")
             log("  window.print() called.")
         except Exception as e:
-            log(f"  Warning — window.print() error (non-fatal): {e}")
+            log(f"  Warning - window.print() error (non-fatal): {e}")
 
         # Close print tab and return focus to main seller dashboard tab
         try:
             await print_page.close()
             await self._page.bring_to_front()
-            log("  Print tab closed — back on main seller tab.")
+            log("  Print tab closed - back on main seller tab.")
         except Exception as e:
-            log(f"  Warning — could not close print tab: {e}")
+            log(f"  Warning - could not close print tab: {e}")
 
-        log(f"══════ Order {order_number} complete ══════")
+        log(f"====== Order {order_number} complete ======")
         return ScrapeResult(
             status=ScraperStatus.SUCCESS,
             buyer_name=buyer_name,

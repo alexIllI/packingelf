@@ -8,12 +8,27 @@ ContentPage {
     id: printingView
     anchors.fill: parent
 
-    title: qsTr("Printing")
-    subtitle: qsTr("Create a scrape job and review finalized orders")
+    title: qsTr("列印出貨單")
+    subtitle: qsTr("建立抓單工作並檢視已完成貨單")
 
     property string inputError: ""
     property string lastResult: ""
-    readonly property var prefixOptions: AppSettings ? AppSettings.printingPrefixOptions : ["PG022", "PG023", "PG024", "PG025", "PG026"]
+    property var prefixOptions: []
+
+    function syncPrefixOptions() {
+        var source = AppSettings ? AppSettings.printingPrefixOptions : null;
+        var nextOptions = [];
+
+        if (source && typeof source.length === "number") {
+            for (var i = 0; i < source.length; ++i)
+                nextOptions.push(String(source[i]));
+        }
+
+        if (nextOptions.length === 0)
+            nextOptions = ["PG022", "PG023", "PG024", "PG025", "PG026"];
+
+        prefixOptions = nextOptions;
+    }
 
     function defaultPrefixText() {
         return prefixOptions.length >= 3 ? prefixOptions[2] : "PG024";
@@ -26,6 +41,7 @@ ContentPage {
     }
 
     Component.onCompleted: {
+        syncPrefixOptions();
         resetPrefixDropdowns();
     }
 
@@ -33,20 +49,21 @@ ContentPage {
         target: ScraperSvc
         function onScraperFinished(submissionId, result) {
             if (result.isSuccess) {
-                printingView.lastResult = qsTr("Scrape finished.");
+                printingView.lastResult = qsTr("抓單完成。");
             } else {
-                printingView.lastResult = qsTr("Scrape failed: ") + result.message;
+                printingView.lastResult = qsTr("抓單失敗：") + result.message;
             }
         }
 
         function onScraperFailed(submissionId, reason) {
-            printingView.lastResult = qsTr("Scrape failed: ") + reason;
+            printingView.lastResult = qsTr("抓單失敗：") + reason;
         }
     }
 
     Connections {
         target: AppSettings
         function onOrderPrefixChanged() {
+            printingView.syncPrefixOptions();
             printingView.resetPrefixDropdowns();
         }
     }
@@ -91,7 +108,7 @@ ContentPage {
 
             Text {
                 color: Theme.header3Color
-                text: qsTr("Create Order")
+                text: qsTr("建立抓單")
                 font.pixelSize: Constants.header3FontSize
             }
 
@@ -113,7 +130,7 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Prefix:")
+                            text: qsTr("前綴：")
                             font.pixelSize: Constants.header3FontSize
                         }
 
@@ -127,32 +144,32 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Order suffix:")
+                            text: qsTr("貨單尾碼：")
                             font.pixelSize: Constants.header3FontSize
                             Layout.leftMargin: 24
                         }
 
                         CustomEntry {
                             id: orderNumberInput
-                            placeholderText: qsTr("Enter the 5 digit suffix")
+                            placeholderText: qsTr("請輸入 5 碼尾碼")
                             Layout.fillWidth: true
                         }
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Invoice:")
+                            text: qsTr("發票號碼：")
                             font.pixelSize: Constants.header3FontSize
                             Layout.leftMargin: 24
                         }
 
                         CustomEntry {
                             id: invoiceNumberInput
-                            placeholderText: qsTr("Enter invoice number")
+                            placeholderText: qsTr("請輸入發票號碼")
                             Layout.fillWidth: true
                         }
 
                         CustomButton {
-                            text: qsTr("Scrape")
+                            text: qsTr("開始抓單")
                             highlighted: true
                             enabled: !ScraperSvc.busy
                             onClicked: {
@@ -164,30 +181,30 @@ ContentPage {
 
                                 var suffixRx = /^\d{5}$/;
                                 if (!suffixRx.test(suffix)) {
-                                    printingView.inputError = qsTr("Order suffix must be exactly 5 digits, for example 12345.");
+                                    printingView.inputError = qsTr("貨單尾碼必須為 5 位數字，例如 12345。");
                                     return;
                                 }
 
                                 var invoiceRx = /^[A-Z]{2}\d{7}$/;
                                 if (!invoiceRx.test(invoice)) {
-                                    printingView.inputError = qsTr("Invoice must use 2 letters and 7 digits, for example AB1234567.");
+                                    printingView.inputError = qsTr("發票號碼格式必須為 2 個英文字母加 7 位數字，例如 AB1234567。");
                                     return;
                                 }
 
                                 var fullOrderNumber = prefix + suffix;
                                 if (ScraperSvc.browserState !== 2) {
-                                    printingView.inputError = qsTr("Browser is not ready yet. Please wait for the scraper to finish starting.");
+                                    printingView.inputError = qsTr("瀏覽器尚未就緒，請等待抓單器啟動完成。");
                                     return;
                                 }
 
                                 var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
                                 if (submissionId.length === 0) {
-                                    printingView.inputError = qsTr("Failed to create a scrape submission.");
+                                    printingView.inputError = qsTr("建立抓單工作失敗。");
                                     return;
                                 }
 
                                 ScraperSvc.scrape(submissionId, fullOrderNumber);
-                                printingView.lastResult = qsTr("Scrape started...");
+                                printingView.lastResult = qsTr("已開始抓單...");
                                 orderNumberInput.text = "";
                                 invoiceNumberInput.text = "";
                             }
@@ -225,30 +242,30 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Finalized Orders")
+                            text: qsTr("已完成貨單")
                             font.pixelSize: Constants.header3FontSize
                             Layout.fillWidth: true
                         }
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Search:")
+                            text: qsTr("搜尋：")
                             font.pixelSize: Constants.header3FontSize
                         }
 
                         CustomEntry {
                             id: searchPrintedInput
-                            placeholderText: qsTr("Search order number")
+                            placeholderText: qsTr("搜尋貨單號碼")
                             Layout.preferredWidth: 188
                             Layout.preferredHeight: 36
                         }
 
                         CustomButton {
-                            text: qsTr("Search")
+                            text: qsTr("搜尋")
                         }
 
                         CustomDropdown {
-                            placeholderText: qsTr("Sort")
+                            placeholderText: qsTr("排序")
                             Layout.preferredWidth: 68
                             Layout.preferredHeight: 38
                         }
@@ -259,32 +276,32 @@ ContentPage {
                         Layout.fillHeight: true
                         columns: [
                             {
-                                title: qsTr("Date"),
+                                title: qsTr("日期"),
                                 role: "date",
                                 width: 0.15
                             },
                             {
-                                title: qsTr("Order Number"),
+                                title: qsTr("貨單號碼"),
                                 role: "orderNumber",
                                 width: 0.3
                             },
                             {
-                                title: qsTr("Invoice Number"),
+                                title: qsTr("發票號碼"),
                                 role: "invoiceNumber",
                                 width: 0.2
                             },
                             {
-                                title: qsTr("Buyer"),
+                                title: qsTr("買家"),
                                 role: "accountName",
                                 width: 0.15
                             },
                             {
-                                title: qsTr("Status"),
+                                title: qsTr("狀態"),
                                 role: "status",
                                 width: 0.1
                             },
                             {
-                                title: qsTr("Coupon"),
+                                title: qsTr("優惠券"),
                                 role: "usingCoupon",
                                 width: 0.1
                             }
@@ -300,14 +317,14 @@ ContentPage {
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
 
                         CustomButton {
-                            text: qsTr("Reprint")
+                            text: qsTr("重新列印")
                             Layout.preferredWidth: 93
                             Layout.preferredHeight: 41
                         }
 
                         CustomButton {
                             id: deletePrintedButton
-                            text: qsTr("Delete")
+                            text: qsTr("刪除")
                             Layout.preferredWidth: 93
                             Layout.preferredHeight: 41
                             onClicked: {
@@ -320,7 +337,7 @@ ContentPage {
 
             Text {
                 color: Theme.header3Color
-                text: qsTr("Pending Orders")
+                text: qsTr("待處理貨單")
                 font.pixelSize: Constants.header3FontSize
                 Layout.topMargin: 20
             }
@@ -343,7 +360,7 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Prefix:")
+                            text: qsTr("前綴：")
                             font.pixelSize: Constants.header3FontSize
                         }
 
@@ -357,32 +374,32 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Order suffix:")
+                            text: qsTr("貨單尾碼：")
                             font.pixelSize: Constants.header3FontSize
                             Layout.leftMargin: 24
                         }
 
                         CustomEntry {
                             id: pendingOrderNumberInput
-                            placeholderText: qsTr("Enter the 5 digit suffix")
+                            placeholderText: qsTr("請輸入 5 碼尾碼")
                             Layout.fillWidth: true
                         }
 
                         Text {
                             color: Theme.header3Color
-                            text: qsTr("Remark")
+                            text: qsTr("備註")
                             font.pixelSize: Constants.header3FontSize
                             Layout.leftMargin: 24
                         }
 
                         CustomEntry {
                             id: remarkInput
-                            placeholderText: qsTr("Add remark")
+                            placeholderText: qsTr("請輸入備註")
                             Layout.fillWidth: true
                         }
 
                         CustomButton {
-                            text: qsTr("Add Pending")
+                            text: qsTr("新增待處理")
                             highlighted: true
                             Layout.leftMargin: 20
                             Layout.maximumWidth: 120
@@ -395,17 +412,17 @@ ContentPage {
                         Layout.fillWidth: true
                         columns: [
                             {
-                                title: qsTr("Date"),
+                                title: qsTr("日期"),
                                 role: "date",
                                 width: 0.15
                             },
                             {
-                                title: qsTr("Order Number"),
+                                title: qsTr("貨單號碼"),
                                 role: "orderNumber",
                                 width: 0.3
                             },
                             {
-                                title: qsTr("Remark"),
+                                title: qsTr("備註"),
                                 role: "remark",
                                 width: 0.55
                             }
@@ -417,7 +434,7 @@ ContentPage {
                     }
 
                     CustomButton {
-                        text: qsTr("Delete Pending")
+                        text: qsTr("刪除待處理")
                     }
                 }
             }
