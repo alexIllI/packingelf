@@ -14,6 +14,7 @@ ContentPage {
     property string inputError: ""
     property string lastResult: ""
     property var prefixOptions: []
+    property string preparedInvoiceNumber: ""
 
     function syncPrefixOptions() {
         var source = AppSettings ? AppSettings.printingPrefixOptions : null;
@@ -34,6 +35,131 @@ ContentPage {
         return prefixOptions.length >= 3 ? prefixOptions[2] : "PG024";
     }
 
+    function currentPrefixText() {
+        return prefixDropdown.currentText || defaultPrefixText();
+    }
+
+    function focusOrderEntry() {
+        orderNumberInput.forceActiveFocus();
+    }
+
+    function focusInvoiceEntry() {
+        invoiceNumberInput.forceActiveFocus();
+    }
+
+    function resetInputWorkflow() {
+        preparedInvoiceNumber = "";
+        orderNumberInput.text = "";
+        invoiceNumberInput.text = "";
+        focusOrderEntry();
+    }
+
+    function normalizedInvoiceText(rawText) {
+        return String(rawText || "").trim().toUpperCase().replace(/\s+/g, "");
+    }
+
+    function tryExtractInvoiceNumber(rawText) {
+        var normalized = normalizedInvoiceText(rawText);
+        var validInvoiceRx = /^[A-Z]{2}\d{8}$/;
+
+        if (validInvoiceRx.test(normalized))
+            return normalized;
+
+        if (normalized.length >= 15) {
+            var sliced = normalized.slice(5, 15);
+            if (validInvoiceRx.test(sliced))
+                return sliced;
+        }
+
+        return "";
+    }
+
+    function handleOrderNumberEnter() {
+        inputError = "";
+        lastResult = "";
+
+        var suffix = orderNumberInput.text.trim();
+        var suffixRx = /^\d{5}$/;
+        if (!suffixRx.test(suffix)) {
+            inputError = qsTr("貨單尾碼必須為 5 位數字，例如 12345。");
+            focusOrderEntry();
+            return;
+        }
+
+        preparedInvoiceNumber = "";
+        focusInvoiceEntry();
+    }
+
+    function submitPrintJob() {
+        var suffix = orderNumberInput.text.trim();
+        var invoice = normalizedInvoiceText(invoiceNumberInput.text);
+        var prefix = currentPrefixText();
+
+        inputError = "";
+        lastResult = "";
+
+        var suffixRx = /^\d{5}$/;
+        if (!suffixRx.test(suffix)) {
+            inputError = qsTr("貨單尾碼必須為 5 位數字，例如 12345。");
+            focusOrderEntry();
+            return;
+        }
+
+        var invoiceRx = /^[A-Z]{2}\d{8}$/;
+        if (!invoiceRx.test(invoice))
+            invoice = tryExtractInvoiceNumber(invoiceNumberInput.text);
+
+        if (!invoiceRx.test(invoice)) {
+            inputError = qsTr("發票號碼格式必須為 2 個英文字母加 8 位數字，例如 AB12345678。");
+            focusInvoiceEntry();
+            return;
+        }
+
+        preparedInvoiceNumber = invoice;
+        invoiceNumberInput.text = invoice;
+
+        var fullOrderNumber = prefix + suffix;
+        if (ScraperSvc.browserState !== 2) {
+            inputError = qsTr("瀏覽器尚未就緒，請等待抓單器啟動完成。");
+            focusOrderEntry();
+            return;
+        }
+
+        var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
+        if (submissionId.length === 0) {
+            inputError = qsTr("建立抓單工作失敗。");
+            focusOrderEntry();
+            return;
+        }
+
+        ScraperSvc.scrape(submissionId, fullOrderNumber);
+        lastResult = qsTr("已開始抓單...");
+        resetInputWorkflow();
+    }
+
+    function handleInvoiceEnter() {
+        inputError = "";
+
+        var extracted = tryExtractInvoiceNumber(invoiceNumberInput.text);
+        if (extracted.length === 0) {
+            preparedInvoiceNumber = "";
+            inputError = qsTr("發票號碼格式必須為 2 個英文字母加 8 位數字，例如 AB12345678。");
+            focusInvoiceEntry();
+            return;
+        }
+
+        if (preparedInvoiceNumber === extracted
+                && normalizedInvoiceText(invoiceNumberInput.text) === extracted) {
+            submitPrintJob();
+            return;
+        }
+
+        preparedInvoiceNumber = extracted;
+        invoiceNumberInput.text = extracted;
+        lastResult = qsTr("已擷取發票號碼，請再按一次 Enter 送出。");
+        focusInvoiceEntry();
+    }
+
     function resetPrefixDropdowns() {
         var defaultIndex = Math.min(2, Math.max(0, prefixOptions.length - 1));
         prefixDropdown.currentIndex = defaultIndex;
@@ -43,6 +169,7 @@ ContentPage {
     Component.onCompleted: {
         syncPrefixOptions();
         resetPrefixDropdowns();
+        focusOrderEntry();
     }
 
     Connections {
@@ -152,7 +279,9 @@ ContentPage {
                         CustomEntry {
                             id: orderNumberInput
                             placeholderText: qsTr("請輸入 5 碼尾碼")
+                            maximumLength: 5
                             Layout.fillWidth: true
+                            onAccepted: printingView.handleOrderNumberEnter()
                         }
 
                         Text {
@@ -166,48 +295,14 @@ ContentPage {
                             id: invoiceNumberInput
                             placeholderText: qsTr("請輸入發票號碼")
                             Layout.fillWidth: true
+                            onAccepted: printingView.handleInvoiceEnter()
                         }
 
                         CustomButton {
                             text: qsTr("開始抓單")
                             highlighted: true
                             enabled: !ScraperSvc.busy
-                            onClicked: {
-                                var suffix = orderNumberInput.text.trim();
-                                var invoice = invoiceNumberInput.text.trim().toUpperCase();
-                                var prefix = prefixDropdown.currentText || printingView.defaultPrefixText();
-                                printingView.inputError = "";
-                                printingView.lastResult = "";
-
-                                var suffixRx = /^\d{5}$/;
-                                if (!suffixRx.test(suffix)) {
-                                    printingView.inputError = qsTr("貨單尾碼必須為 5 位數字，例如 12345。");
-                                    return;
-                                }
-
-                                var invoiceRx = /^[A-Z]{2}\d{7}$/;
-                                if (!invoiceRx.test(invoice)) {
-                                    printingView.inputError = qsTr("發票號碼格式必須為 2 個英文字母加 7 位數字，例如 AB1234567。");
-                                    return;
-                                }
-
-                                var fullOrderNumber = prefix + suffix;
-                                if (ScraperSvc.browserState !== 2) {
-                                    printingView.inputError = qsTr("瀏覽器尚未就緒，請等待抓單器啟動完成。");
-                                    return;
-                                }
-
-                                var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
-                                if (submissionId.length === 0) {
-                                    printingView.inputError = qsTr("建立抓單工作失敗。");
-                                    return;
-                                }
-
-                                ScraperSvc.scrape(submissionId, fullOrderNumber);
-                                printingView.lastResult = qsTr("已開始抓單...");
-                                orderNumberInput.text = "";
-                                invoiceNumberInput.text = "";
-                            }
+                            onClicked: printingView.submitPrintJob()
                         }
 
                         CustomBusyIndicator {
