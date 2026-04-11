@@ -16,6 +16,7 @@ QtObject {
     readonly property color surface: "#212b2d"
 
     readonly property color goodColor: "#66BB6A"
+    readonly property color errorColor: "#EF5350"
 
     // Font Color
     readonly property color header1Color: "#ffffff"

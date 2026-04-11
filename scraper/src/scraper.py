@@ -429,6 +429,23 @@ class MyAcgScraper:
         # Solution: bypass Playwright locators entirely and call
         # document.getElementById().click() directly from page JS — identical to
         # what the old Selenium execute_script("arguments[0].click()", el) did.
+        log("  Step 7.5/9 - Checking if order is already picked up...")
+        try:
+            picked_up = self._page.locator(
+                'xpath=//div[contains(normalize-space(.), "已取貨")]'
+            ).first
+            if await picked_up.is_visible(timeout=TIMEOUT_SHORT):
+                log("    -> Order already picked up. Skipping print flow.")
+                return ScrapeResult(
+                    status=ScraperStatus.SUCCESS,
+                    buyer_name=buyer_name,
+                    order_date=order_date,
+                    using_coupon=using_coupon,
+                    message="Order already picked up; print skipped.",
+                )
+        except Exception as e:
+            log(f"    Pick-up marker not detected: {e}")
+
         numeric_id = order_number[3:]
         log(f"  Step 8/9 - Clicking checkbox via JS (oid_check_{numeric_id})...")
         try:
