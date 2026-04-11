@@ -738,7 +738,7 @@ ContentPage {
                                                     required property var modelData
 
                                                     width: accountListColumn.width
-                                                    height: 88
+                                                    height: 64
                                                     radius: 16
                                                     color: settingView.activeEditorAccountName === String(modelData.name)
                                                            ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.18)
@@ -748,22 +748,18 @@ ContentPage {
                                                                   ? Theme.primaryColor
                                                                   : Theme.borderColor
 
-                                                    Column {
+                                                    Item {
                                                         anchors.fill: parent
                                                         anchors.margins: 14
-                                                        spacing: 6
 
                                                         Text {
                                                             text: String(modelData.name)
                                                             color: Theme.header1Color
                                                             font.pixelSize: Constants.header3FontSize
                                                             font.bold: true
-                                                        }
-
-                                                        Text {
-                                                            text: String(modelData.account)
-                                                            color: Theme.headerSubColor
-                                                            font.pixelSize: 12
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            anchors.left: parent.left
+                                                            anchors.right: parent.right
                                                             elide: Text.ElideRight
                                                         }
                                                     }

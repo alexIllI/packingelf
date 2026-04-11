@@ -18,11 +18,14 @@
 //   property int total: DashboardVM.totalOrders
 // ─────────────────────────────────────────────────────────────
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 
+#include "AppLog.h"
 #include "AppSettings.h"
 #include "DashboardViewModel.h"
+#include "OrderTableViewModel.h"
 #include "OrdersViewModel.h"
 #include "PendingOrdersViewModel.h"
 #include "ScraperService.h"
@@ -38,6 +41,10 @@ int main(int argc, char **argv) {
   // On Windows: C:/Users/<user>/AppData/Local/Meridian/PackingElf/
   app.setOrganizationName(QStringLiteral("Meridian"));
   app.setApplicationName(QStringLiteral("PackingElf"));
+  app.setWindowIcon(
+      QIcon(QStringLiteral(":/qt/qml/PackingElf/ui/assets/images/app_icon.ico")));
+
+  AppLog::install();
 
   // ─── Wire up all layers ───
   // Database → Repository → ViewModels (with signal connections)
@@ -51,8 +58,14 @@ int main(int argc, char **argv) {
   // Any QML file can reference OrdersVM and DashboardVM directly.
   engine.rootContext()->setContextProperty(QStringLiteral("AppSettings"),
                                            wired.appSettings.get());
+  engine.rootContext()->setContextProperty(QStringLiteral("AppSupport"),
+                                           wired.appSupportSvc.get());
   engine.rootContext()->setContextProperty(QStringLiteral("OrdersVM"),
                                            wired.ordersVM.get());
+  engine.rootContext()->setContextProperty(QStringLiteral("PrintingOrdersTableVM"),
+                                           wired.printingOrdersTableVM.get());
+  engine.rootContext()->setContextProperty(QStringLiteral("HistoryOrdersTableVM"),
+                                           wired.historyOrdersTableVM.get());
   engine.rootContext()->setContextProperty(QStringLiteral("PendingOrdersVM"),
                                            wired.pendingOrdersVM.get());
   engine.rootContext()->setContextProperty(QStringLiteral("DashboardVM"),

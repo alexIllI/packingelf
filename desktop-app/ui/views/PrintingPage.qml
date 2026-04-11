@@ -9,7 +9,7 @@ ContentPage {
     anchors.fill: parent
 
     title: qsTr("列印出貨單")
-    subtitle: qsTr("建立抓單工作並檢視已完成貨單")
+    subtitle: qsTr("建立列印工作並檢視已完成貨單")
 
     property string inputError: ""
     property string lastResult: ""
@@ -21,6 +21,24 @@ ContentPage {
     property string selectedPendingOrderNumber: ""
     property string pendingInputError: ""
     property string pendingLastResult: ""
+    readonly property var printedStatusOptions: [
+        {
+            text: qsTr("全部"),
+            value: "all"
+        },
+        {
+            text: qsTr("成功"),
+            value: "success"
+        },
+        {
+            text: qsTr("關轉"),
+            value: "closed"
+        },
+        {
+            text: qsTr("取消"),
+            value: "canceled"
+        }
+    ]
 
     function syncPrefixOptions() {
         var source = AppSettings ? AppSettings.printingPrefixOptions : null;
@@ -49,6 +67,36 @@ ContentPage {
         return pendingPrefixDropdown.currentText || defaultPrefixText();
     }
 
+    function applyPrintedTableFilter() {
+        var statusValue = printedStatusDropdown.currentValue;
+        if (statusValue === undefined || statusValue === null || statusValue === "")
+            statusValue = "all";
+
+        PrintingOrdersTableVM.setRecentHoursFilter(24);
+        PrintingOrdersTableVM.applyFilters(String(statusValue), "", "", "");
+        clearPrintedSelection();
+    }
+
+    function searchPrintedOrder() {
+        var query = searchPrintedInput.text.trim();
+        if (query.length === 0) {
+            AppDialog.showWarning(qsTr("請先輸入搜尋內容"),
+                                  qsTr("請輸入要查找的貨單號碼或發票號碼。"));
+            return;
+        }
+
+        var row = PrintingOrdersTableVM.findRow(query);
+        if (row < 0) {
+            AppDialog.showWarning(qsTr("查無資料"),
+                                  qsTr("最近 24 小時的已完成貨單中找不到符合的資料。"));
+            return;
+        }
+
+        printedOrdersTable.currentIndex = row;
+        printedOrdersTable.scrollToIndex(row);
+        selectPrintedRow(row);
+    }
+
     function focusOrderEntry() {
         orderNumberInput.forceActiveFocus();
     }
@@ -73,7 +121,7 @@ ContentPage {
 
     function selectPrintedRow(row) {
         selectedPrintedRow = row;
-        selectedPrintedOrderNumber = OrdersVM.orderNumberAt(row);
+        selectedPrintedOrderNumber = PrintingOrdersTableVM.orderNumberAt(row);
     }
 
     function clearPendingSelection() {
@@ -176,8 +224,8 @@ ContentPage {
         if (existingOrder && existingOrder.id) {
             AppDialog.confirm({
                 titleText: qsTr("貨單已存在"),
-                messageText: qsTr("這筆貨單已經列印過，是否要重新抓單並覆蓋原本結果？\n\n%1").arg(formatOrderInfoMessage(existingOrder)),
-                confirmText: qsTr("重新抓單"),
+                messageText: qsTr("這筆貨單已經列印過，是否要重新列印並覆蓋原本結果？\n\n%1").arg(formatOrderInfoMessage(existingOrder)),
+                confirmText: qsTr("重新列印"),
                 cancelText: qsTr("取消"),
                 iconSource: AppDialog.questionIcon,
                 accentColor: Theme.questionColor,
@@ -193,20 +241,20 @@ ContentPage {
 
     function startScrapeSubmission(fullOrderNumber, invoice) {
         if (ScraperSvc.browserState !== 2) {
-            inputError = qsTr("瀏覽器尚未就緒，請等待抓單器啟動完成。");
+            inputError = qsTr("瀏覽器尚未就緒，請等待自動化網頁啟動完成。");
             focusOrderEntry();
             return;
         }
 
         var submissionId = OrdersVM.submitForScrape(fullOrderNumber, invoice);
         if (submissionId.length === 0) {
-            inputError = qsTr("建立抓單工作失敗。");
+            inputError = qsTr("建立列印工作失敗。");
             focusOrderEntry();
             return;
         }
 
         ScraperSvc.scrape(submissionId, fullOrderNumber);
-        lastResult = qsTr("已開始抓單...");
+        lastResult = qsTr("已開始列印...");
         resetInputWorkflow();
         clearPrintedSelection();
     }
@@ -238,7 +286,7 @@ ContentPage {
         var reason = String(result.message || "");
 
         if (normalizedStatus === "SUCCESS") {
-            printingView.lastResult = qsTr("抓單完成。");
+            printingView.lastResult = qsTr("列印完成。");
             return;
         }
 
@@ -272,8 +320,8 @@ ContentPage {
             return;
         }
 
-        printingView.lastResult = qsTr("抓單失敗。");
-        AppDialog.showError(qsTr("抓單失敗"), reason.length > 0 ? reason : qsTr("抓單流程發生未預期錯誤。"));
+        printingView.lastResult = qsTr("列印失敗。");
+        AppDialog.showError(qsTr("列印失敗"), reason.length > 0 ? reason : qsTr("列印流程發生未預期錯誤。"));
     }
 
     function requestDeletePrintedOrder() {
@@ -292,7 +340,7 @@ ContentPage {
             iconSource: AppDialog.warningIcon,
             accentColor: Theme.warningColor,
             onConfirmAction: function () {
-                if (!OrdersVM.removeOrder(printingView.selectedPrintedRow)) {
+                if (!OrdersVM.removeOrderByOrderNumber(printingView.selectedPrintedOrderNumber)) {
                     AppDialog.showError(qsTr("刪除失敗"), qsTr("無法刪除這筆貨單，請稍後再試。"));
                     return;
                 }
@@ -313,7 +361,7 @@ ContentPage {
 
         AppDialog.confirm({
             titleText: qsTr("重新列印"),
-            messageText: qsTr("確定要重新列印這筆貨單嗎？重新抓單後會覆蓋原本結果。\n\n%1").arg(formatOrderInfoMessage(details)),
+            messageText: qsTr("確定要重新列印這筆貨單嗎？重新列印後會覆蓋原本結果。\n\n%1").arg(formatOrderInfoMessage(details)),
             confirmText: qsTr("重新列印"),
             cancelText: qsTr("取消"),
             iconSource: AppDialog.questionIcon,
@@ -386,6 +434,9 @@ ContentPage {
     Component.onCompleted: {
         syncPrefixOptions();
         resetPrefixDropdowns();
+        printedStatusDropdown.currentIndex = 0;
+        PrintingOrdersTableVM.setRecentHoursFilter(24);
+        applyPrintedTableFilter();
         focusOrderEntry();
     }
 
@@ -396,8 +447,15 @@ ContentPage {
         }
 
         function onScraperFailed(submissionId, reason) {
-            printingView.lastResult = qsTr("抓單失敗：") + reason;
-            AppDialog.showError(qsTr("抓單失敗"), reason && reason.length > 0 ? reason : qsTr("抓單流程發生未預期錯誤。"));
+            printingView.lastResult = qsTr("列印失敗：") + reason;
+            AppDialog.showError(qsTr("列印失敗"), reason && reason.length > 0 ? reason : qsTr("列印流程發生未預期錯誤。"));
+        }
+    }
+
+    Connections {
+        target: OrdersVM
+        function onCountChanged() {
+            printingView.applyPrintedTableFilter();
         }
     }
 
@@ -410,9 +468,9 @@ ContentPage {
     }
 
     Connections {
-        target: OrdersVM
+        target: PrintingOrdersTableVM
         function onCountChanged() {
-            if (printingView.selectedPrintedRow >= OrdersVM.count)
+            if (printingView.selectedPrintedRow >= PrintingOrdersTableVM.count)
                 printingView.clearPrintedSelection();
         }
     }
@@ -461,7 +519,7 @@ ContentPage {
 
             Text {
                 color: Theme.header3Color
-                text: qsTr("建立抓單")
+                text: qsTr("建立列印工作")
                 font.pixelSize: Constants.header3FontSize
             }
 
@@ -525,7 +583,7 @@ ContentPage {
                         }
 
                         CustomButton {
-                            text: qsTr("開始抓單")
+                            text: qsTr("開始列印")
                             highlighted: true
                             enabled: !ScraperSvc.busy
                             onClicked: printingView.submitPrintJob()
@@ -576,19 +634,26 @@ ContentPage {
 
                         CustomEntry {
                             id: searchPrintedInput
-                            placeholderText: qsTr("搜尋貨單號碼")
+                            placeholderText: qsTr("搜尋貨單號碼或發票號碼")
                             Layout.preferredWidth: 188
                             Layout.preferredHeight: 36
+                            onAccepted: printingView.searchPrintedOrder()
                         }
 
                         CustomButton {
                             text: qsTr("搜尋")
+                            onClicked: printingView.searchPrintedOrder()
                         }
 
                         CustomDropdown {
-                            placeholderText: qsTr("排序")
+                            id: printedStatusDropdown
+                            model: printingView.printedStatusOptions
+                            textRole: "text"
+                            valueRole: "value"
+                            placeholderText: qsTr("全部")
                             Layout.preferredWidth: 68
                             Layout.preferredHeight: 38
+                            onActivated: printingView.applyPrintedTableFilter()
                         }
                     }
 
@@ -628,7 +693,7 @@ ContentPage {
                                 width: 0.1
                             }
                         ]
-                        model: OrdersVM
+                        model: PrintingOrdersTableVM
 
                         onRowClicked: index => {
                             printingView.selectPrintedRow(index);

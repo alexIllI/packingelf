@@ -29,8 +29,10 @@
 // unique_ptr needs the complete type to call the destructor.
 #include "DashboardViewModel.h"
 #include "AppSettings.h"
+#include "AppSupportService.h"
 #include "Database.h"
 #include "OrdersRepository.h"
+#include "OrderTableViewModel.h"
 #include "OrdersViewModel.h"
 #include "PendingOrdersViewModel.h"
 #include "ScraperService.h"
@@ -41,9 +43,12 @@
 // for the entire application lifetime (owned by main()).
 struct WiredApp {
   std::unique_ptr<AppSettings> appSettings;         // User config stored in AppData
+  std::unique_ptr<AppSupportService> appSupportSvc; // Logging and local diagnostics
   std::unique_ptr<Database> database;              // Local SQLite connection
   std::shared_ptr<OrdersRepository> ordersRepo;    // CRUD operations (shared)
   std::unique_ptr<OrdersViewModel> ordersVM;       // QML list model for orders
+  std::unique_ptr<OrderTableViewModel> printingOrdersTableVM; // Filtered list model for printing table
+  std::unique_ptr<OrderTableViewModel> historyOrdersTableVM;  // Filtered list model for history table
   std::unique_ptr<PendingOrdersViewModel> pendingOrdersVM; // QML list model for local pending orders
   std::unique_ptr<DashboardViewModel> dashboardVM; // QML metrics for HomePage
   std::unique_ptr<ScraperService>

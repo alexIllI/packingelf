@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Fix MSVC C++ standard detection for Qt6
 if(MSVC)
   add_compile_options(/Zc:__cplusplus)
+  add_compile_options(/FS)
 endif()
 
 # Qt automation
@@ -37,14 +38,18 @@ qt_policy(SET QTP0004 OLD)  # allow extra subdirs without per-dir qmldir files
 #  All source files for the PackingElf application
 #  ─────────────────────────────────────────────────────────────
 add_executable(packingelf
+  app_icon.rc
   app/main.cpp
   app/wiring.cpp
   data/Database.cpp
   data/OrdersRepository.cpp
+  viewmodels/OrderTableViewModel.cpp
   viewmodels/OrdersViewModel.cpp
   viewmodels/PendingOrdersViewModel.cpp
   viewmodels/DashboardViewModel.cpp
   services/HostClient.cpp
+  services/AppLog.cpp
+  services/AppSupportService.cpp
   services/OutboxStore.cpp
   services/ScraperService.cpp
   services/SyncService.cpp
@@ -90,6 +95,7 @@ qt_add_qml_module(packingelf
     ui/components/StatusLight.qml
     ui/components/NavButton.qml
     ui/components/ContentPage.qml
+    ui/components/WindowTitleBar.qml
     ui/components/CustomDropdown.qml
     ui/components/CustomCheckBox.qml
     ui/components/CustomEntry.qml
@@ -124,6 +130,7 @@ qt_add_qml_module(packingelf
     ui/assets/images/warning.png
     ui/assets/images/question.png
     ui/assets/images/error.png
+    ui/assets/images/app_icon.ico
 )
 
 # Post-build: deploy Qt dependencies (DLLs, QML modules, translations)

@@ -34,6 +34,8 @@ public:
 signals:
     void statusChanged();
     void ordersChanged();
+    void connectionTestFinished(bool ok, const QString& message);
+    void syncCycleFinished(bool ok, const QString& message);
 
 private:
     void onPairingFinished(bool ok, qint64 initialRevision, const QString& message);

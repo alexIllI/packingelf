@@ -9,20 +9,18 @@ import PackingElf 1.0
 Rectangle {
     id: root
 
-    // Column definitions: list of objects with "title", "role", and "width".
-    // Example: [{ title: "貨單號碼", role: "orderNumber", width: 0.4 }]
     property var columns: []
-
-    // Data model: assign a ListModel, QAbstractItemModel, or JS array.
     property alias model: listView.model
-
-    // Currently selected row index (-1 = none).
     property int currentIndex: -1
-
-    // Row height in pixels.
     property int rowHeight: 36
 
     signal rowClicked(int index)
+
+    function scrollToIndex(index) {
+        if (index < 0 || index >= listView.count)
+            return;
+        listView.positionViewAtIndex(index, ListView.Center);
+    }
 
     color: "transparent"
     radius: 8

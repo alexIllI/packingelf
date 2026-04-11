@@ -131,6 +131,27 @@ bool OrdersViewModel::removeOrder(int row)
     return true;
 }
 
+bool OrdersViewModel::removeOrderByOrderNumber(const QString& orderNumber)
+{
+    if (orderNumber.trimmed().isEmpty())
+        return false;
+
+    const auto order = m_repo->fetchByOrderNumber(orderNumber);
+    if (!order.has_value())
+        return false;
+
+    const SyncConfig config = m_repo->syncConfig();
+    if (!m_repo->softDelete(order->id, config.clientId))
+        return false;
+
+    if (m_outbox)
+        m_outbox->enqueueDeleteOrder(order->orderNumber, config.clientId);
+
+    refresh();
+    emit orderRemoved(order->id);
+    return true;
+}
+
 void OrdersViewModel::refresh()
 {
     beginResetModel();
