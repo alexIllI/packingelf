@@ -7,6 +7,7 @@ MetricCard 1.0 components/MetricCard.qml
 StatusLight 1.0 components/StatusLight.qml
 NavButton 1.0 components/NavButton.qml
 ContentPage 1.0 components/ContentPage.qml
+WindowTitleBar 1.0 components/WindowTitleBar.qml
 CustomDropdown 1.0 components/CustomDropdown.qml
 # Singletons
 singleton Constants 1.0 Constants.qml

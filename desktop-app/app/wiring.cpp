@@ -15,7 +15,10 @@ WiredApp wireEverything() {
 
   auto outbox = std::make_unique<OutboxStore>(app.database->db());
   app.ordersRepo = std::make_shared<OrdersRepository>(app.database->db());
+  app.appSupportSvc = std::make_unique<AppSupportService>(app.database.get(), app.ordersRepo);
   app.ordersVM = std::make_unique<OrdersViewModel>(app.ordersRepo, outbox.get());
+  app.printingOrdersTableVM = std::make_unique<OrderTableViewModel>(app.ordersRepo);
+  app.historyOrdersTableVM = std::make_unique<OrderTableViewModel>(app.ordersRepo);
   app.pendingOrdersVM = std::make_unique<PendingOrdersViewModel>(app.ordersRepo);
   app.dashboardVM = std::make_unique<DashboardViewModel>(app.ordersRepo);
   auto hostClient = std::make_unique<HostClient>();
@@ -50,8 +53,20 @@ WiredApp wireEverything() {
                    app.syncSvc.get(), &SyncService::triggerSync);
   QObject::connect(app.ordersVM.get(), &OrdersViewModel::orderRemoved,
                    app.syncSvc.get(), &SyncService::triggerSync);
+  QObject::connect(app.ordersVM.get(), &OrdersViewModel::orderCreated,
+                   app.printingOrdersTableVM.get(), &OrderTableViewModel::refresh);
+  QObject::connect(app.ordersVM.get(), &OrdersViewModel::orderCreated,
+                   app.historyOrdersTableVM.get(), &OrderTableViewModel::refresh);
+  QObject::connect(app.ordersVM.get(), &OrdersViewModel::orderRemoved,
+                   app.printingOrdersTableVM.get(), &OrderTableViewModel::refresh);
+  QObject::connect(app.ordersVM.get(), &OrdersViewModel::orderRemoved,
+                   app.historyOrdersTableVM.get(), &OrderTableViewModel::refresh);
   QObject::connect(app.syncSvc.get(), &SyncService::ordersChanged,
                    app.ordersVM.get(), &OrdersViewModel::refresh);
+  QObject::connect(app.syncSvc.get(), &SyncService::ordersChanged,
+                   app.printingOrdersTableVM.get(), &OrderTableViewModel::refresh);
+  QObject::connect(app.syncSvc.get(), &SyncService::ordersChanged,
+                   app.historyOrdersTableVM.get(), &OrderTableViewModel::refresh);
   QObject::connect(app.appSettings.get(), &AppSettings::myAcgAccountsChanged,
                    app.scraperSvc.get(), applyLoginPreference);
   QObject::connect(app.appSettings.get(), &AppSettings::autoLoginSettingsChanged,

@@ -29,6 +29,10 @@ SyncService::SyncService(std::shared_ptr<OrdersRepository> repo,
     connect(m_hostClient.get(), &HostClient::healthCheckFinished, this, [this](bool ok, const QString& message) {
         m_statusText = ok ? QStringLiteral("Host reachable") : message;
         emit statusChanged();
+        emit connectionTestFinished(ok, message.isEmpty()
+                                        ? (ok ? QStringLiteral("Host reachable")
+                                              : QStringLiteral("Host unavailable"))
+                                        : message);
     });
     connect(m_hostClient.get(), &HostClient::pairingFinished, this, &SyncService::onPairingFinished);
     connect(m_hostClient.get(), &HostClient::mutationsPushed, this, &SyncService::onMutationsPushed);
@@ -68,6 +72,7 @@ void SyncService::triggerSync()
     if (m_hostClient->baseUrl().isEmpty()) {
         m_statusText = QStringLiteral("Host sync is not configured");
         emit statusChanged();
+        emit syncCycleFinished(false, m_statusText);
         return;
     }
 
@@ -183,4 +188,5 @@ void SyncService::finishCycle(const QString& message)
     m_cycleInFlight = false;
     m_statusText = message;
     emit statusChanged();
+    emit syncCycleFinished(m_hostClient && m_hostClient->online(), message);
 }

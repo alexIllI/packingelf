@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Basic as BasicControls
 import QtQuick.Layouts
 import PackingElf 1.0
 
@@ -7,575 +8,776 @@ ContentPage {
     id: homeView
     anchors.fill: parent
 
-    // ─── Bind to DashboardVM (exposed as context property from C++) ───
     property int totalOrders: DashboardVM.totalOrders
     property int pendingOrders: DashboardVM.pendingOrders
     property int todayProcessed: DashboardVM.todayProcessed
     property int errorJobs: DashboardVM.errorCount
     property bool hostDbOnline: SyncSvc.hostOnline
-    property bool localDbOnline: DashboardVM.localDbOnline
+    property bool localDbOnline: AppSupport.localDbHealthy
+    property int pendingSyncCount: SyncSvc.pendingOutboxCount
+    property bool waitingForConnectionTest: false
+    property bool waitingForSync: false
+    property bool waitingForBrowserRestart: false
+    readonly property int sectionRadius: 14
+    readonly property int sectionPadding: 12
+    readonly property int actionButtonHeight: 38
 
     title: qsTr("首頁")
-    subtitle: qsTr("檢視包貨小精靈狀態")
+    subtitle: qsTr("掌握今日進度、網頁自動化狀態與資料同步情況")
 
-    ColumnLayout {
-        id: homeMainLayout
+    function browserStatusLabel() {
+        const state = ScraperSvc.browserState;
+        if (state === 0)
+            return qsTr("未啟動");
+        if (state === 1)
+            return qsTr("啟動中");
+        if (state === 2)
+            return qsTr("就緒");
+        if (state === 3)
+            return qsTr("登入中");
+        if (state === 4)
+            return qsTr("等待登入");
+        return qsTr("異常");
+    }
+
+    function browserStatusColor() {
+        const state = ScraperSvc.browserState;
+        if (state === 2)
+            return Theme.goodColor;
+        if (state === 1 || state === 3 || state === 4)
+            return Theme.warningColor;
+        return Theme.errorColor;
+    }
+
+    function hostStatusLabel() {
+        return homeView.hostDbOnline ? qsTr("已連線") : qsTr("未連線");
+    }
+
+    function localStatusLabel() {
+        return homeView.localDbOnline ? qsTr("正常") : qsTr("異常");
+    }
+
+    function hostDetailText() {
+        if (SyncSvc.statusText && SyncSvc.statusText.length > 0)
+            return SyncSvc.statusText;
+        return qsTr("等待同步服務更新");
+    }
+
+    function syncSummaryText() {
+        if (homeView.pendingSyncCount > 0)
+            return qsTr("還有 %1 筆變更待同步到主機。").arg(homeView.pendingSyncCount);
+        if (!homeView.hostDbOnline)
+            return qsTr("主機目前未連線，本機資料仍可使用，稍後會自動重試同步。");
+        return qsTr("目前沒有待同步資料。");
+    }
+
+    function workHintText() {
+        if (homeView.pendingOrders > 0)
+            return qsTr("目前有 %1 筆待處理貨單，建議優先完成列印。").arg(homeView.pendingOrders);
+        if (ScraperSvc.browserState !== 2)
+            return qsTr("自動化網頁尚未完全就緒，開始列印前請先確認瀏覽器登入狀態。");
+        return qsTr("目前流程正常，可以直接前往列印頁繼續作業。");
+    }
+
+    function autoLoginLabel() {
+        return AppSettings.autoLoginEnabled ? qsTr("自動登入：%1").arg(AppSettings.selectedMyAcgAccountName || qsTr("未指定帳號")) : qsTr("手動登入");
+    }
+
+    function statusSummaryText() {
+        if (homeView.hostDbOnline && homeView.localDbOnline && ScraperSvc.browserState === 2)
+            return qsTr("本機與同步服務皆正常，可以直接開始作業。");
+        if (!homeView.hostDbOnline)
+            return qsTr("主機離線中，系統會先保留本機作業結果並稍後重試同步。");
+        if (!homeView.localDbOnline)
+            return qsTr("本機資料庫需要檢查，建議先測試資料庫連線。");
+        return qsTr("自動化網頁尚未就緒，請先確認登入或重新啟動自動化網頁。");
+    }
+
+    function diagnosticsSummaryText() {
+        return qsTr("待處理 %1 筆 / 待同步 %2 筆 / 前綴 %3").arg(homeView.pendingOrders).arg(homeView.pendingSyncCount).arg(AppSettings.orderPrefix.toString().padStart(3, "0"));
+    }
+
+    function shortenPath(pathValue) {
+        if (!pathValue || pathValue.length <= 48)
+            return pathValue;
+        return pathValue.slice(0, 22) + "..." + pathValue.slice(pathValue.length - 20);
+    }
+
+    function showOpenLogError() {
+        AppDialog.showError(qsTr("開啟失敗"), qsTr("目前無法開啟記錄檔或資料夾。"));
+    }
+
+    function showOpenDatabaseError() {
+        AppDialog.showError(qsTr("開啟失敗"), qsTr("目前無法開啟資料庫位置。"));
+    }
+
+    function showOperationResult(ok, titleText, messageText) {
+        if (ok)
+            AppDialog.showSuccess(titleText, messageText);
+        else
+            AppDialog.showError(titleText, messageText);
+    }
+
+    Item {
         anchors.fill: parent
-        spacing: Constants.pageGap
 
-        // ─────────────────────────────────────────────────────────────
-        // Dashboard Layout
-        // ─────────────────────────────────────────────────────────────
-        RowLayout {
-            id: dashboardLayout
-            spacing: Constants.pageGap // 20
-            Card {
-                id: orderPanel
-                Layout.minimumHeight: 135
-                Layout.fillWidth: true
-                RowLayout {
-                    id: orderFrame
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    uniformCellSizes: true
-                    MetricCard {
-                        title: "全部貨單數量"
-                        displayValue: homeView.totalOrders
-                        unit: "件"
-                        iconSource: "../assets/images/total_orders.svg"
-                    }
-                    MetricCard {
-                        title: "標記貨單數量"
-                        displayValue: homeView.pendingOrders
-                        unit: "件"
-                        iconSource: "../assets/images/pending.svg"
-                    }
-                    MetricCard {
-                        title: "今日貨單數量"
-                        displayValue: homeView.todayProcessed
-                        unit: "件"
-                        iconSource: "../assets/images/record.svg"
-                    }
-                }
+        Connections {
+            target: SyncSvc
+
+            function onConnectionTestFinished(ok, message) {
+                if (!homeView.waitingForConnectionTest)
+                    return;
+
+                homeView.waitingForConnectionTest = false;
+                homeView.showOperationResult(ok, qsTr("主機連線測試"), message && message.length > 0 ? message : (ok ? qsTr("主機連線正常。") : qsTr("主機連線失敗。")));
             }
-            Card {
-                id: statusPanel
-                Layout.minimumHeight: 135
-                Layout.minimumWidth: 250
-                RowLayout {
-                    id: statusFrame
-                    visible: true
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    uniformCellSizes: true
-                    MetricCard {
-                        title: "錯誤"
-                        displayValue: homeView.errorJobs
-                        unit: "件"
-                        iconSource: "../assets/images/total_orders.svg"
-                    }
-                }
+
+            function onSyncCycleFinished(ok, message) {
+                if (!homeView.waitingForSync)
+                    return;
+
+                homeView.waitingForSync = false;
+                homeView.showOperationResult(ok, qsTr("同步結果"), message && message.length > 0 ? message : (ok ? qsTr("同步完成。") : qsTr("同步失敗。")));
             }
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // Data pipelines + Automation + Logs (stubs ok)
-        // ─────────────────────────────────────────────────────────────
+        Connections {
+            target: ScraperSvc
 
-        RowLayout {
-            id: controlLayout
-            uniformCellSizes: false
-            Layout.minimumHeight: 400
-            Layout.fillWidth: true
-            spacing: 20
-            Card {
-                id: appStatusPanel
-                width: 200
-                Layout.preferredWidth: 300
-                Layout.minimumWidth: 300
-                Layout.fillHeight: true
-                Layout.fillWidth: true
+            function onBrowserReady() {
+                if (!homeView.waitingForBrowserRestart)
+                    return;
 
-                ColumnLayout {
-                    id: appStatusFrame
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 5
-                    Text {
-                        id: home_AppStatusHeader2
-                        color: Theme.header2Color
-                        text: qsTr("包貨小精靈狀態")
-                        font.pixelSize: Constants.header2FontSize
-                        Layout.bottomMargin: 10
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                    }
-
-                    Text {
-                        id: home_AppStatusHeader3
-                        color: Theme.header2Color
-                        text: qsTr("工作階段:")
-                        font.pixelSize: Constants.header3FontSize
-                    }
-
-                    RowLayout {
-                        id: descriptionFrame
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.maximumHeight: 30
-                        CustomBusyIndicator {
-                            id: home_AppBusyIndicator
-                            visible: true
-                            running: true
-                            Layout.minimumHeight: 30
-                            Layout.minimumWidth: 30
-                            Layout.preferredHeight: 30
-                            Layout.preferredWidth: 30
-                        }
-
-                        Text {
-                            id: home_StatusDescriptionHeader3
-                            color: Theme.header2Color
-                            text: qsTr("正在連線到買動漫")
-                            font.pixelSize: Constants.header3FontSize
-                            Layout.minimumWidth: 100
-                            Layout.fillHeight: false
-                            Layout.fillWidth: false
-                            Layout.preferredHeight: 17
-                        }
-                    }
-
-                    CustomProgressBar {
-                        id: home_AppProgressBar
-                        value: 0.7
-                        Layout.minimumHeight: 15
-                        Layout.minimumWidth: 180
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.preferredWidth: 180
-                        Layout.preferredHeight: 15
-                    }
-
-                    Text {
-                        id: home_AppProgressHeader3
-                        color: Theme.header2Color
-                        text: Math.round(home_AppProgressBar.value * 100) + " %"
-                        font.pixelSize: Constants.header3FontSize
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.preferredWidth: 35
-                        Layout.preferredHeight: 17
-                    }
-
-                    Text {
-                        id: home_ConsoleOutputHeader3
-                        color: Theme.header3Color
-                        text: qsTr("Console Output:")
-                        font.pixelSize: Constants.header3FontSize
-                    }
-
-                    RowLayout {
-                        id: consoleFrame
-                        Layout.fillWidth: true
-                        CustomDropdown {
-                            id: home_ConsoleDropdown
-                            Layout.preferredHeight: 40
-                        }
-
-                        CustomButton {
-                            id: home_ClearConsoleButton
-                            text: qsTr("清除")
-                            Layout.preferredHeight: 40
-                            Layout.minimumHeight: 40
-                        }
-
-                        CustomButton {
-                            id: home_OpenLogButton
-                            text: qsTr("開啟日誌位置")
-                            Layout.preferredHeight: 40
-                            Layout.minimumHeight: 40
-                        }
-                    }
-
-                    ScrollView {
-                        id: home_ConsoleOutputScrollArea
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                    }
-                }
+                homeView.waitingForBrowserRestart = false;
+                AppDialog.showSuccess(qsTr("自動化網頁已重啟"), qsTr("瀏覽器已就緒，可以繼續列印。"));
             }
 
-            Card {
-                id: webControlPanel
-                width: 200
-                Layout.minimumWidth: 250
-                Layout.fillHeight: true
+            function onBrowserDied(reason) {
+                if (!homeView.waitingForBrowserRestart)
+                    return;
 
-                ColumnLayout {
-                    id: webControlFrame
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 10
-                    spacing: 10
-                    Text {
-                        id: home_WebControlHeader2
-                        color: Theme.header2Color
-                        text: qsTr("網頁控制")
-                        font.pixelSize: Constants.header2FontSize
-                        Layout.bottomMargin: 10
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.preferredWidth: 78
-                        Layout.preferredHeight: 27
-                    }
-
-                    // ─── Browser state indicator ─────────────────────────
-                    // Binds to ScraperSvc.browserState (int enum) and statusText.
-                    // BrowserState: 0=Offline 1=Starting 2=Ready 3=Busy 4=Restarting 5=Error
-                    RowLayout {
-                        id: webStatusFrame
-                        Text {
-                            id: home_MyacgStatusHeader3
-                            color: Theme.header3Color
-                            text: qsTr("目前狀態:")
-                            font.pixelSize: Constants.header3FontSize
-                        }
-
-                        Rectangle {
-                            id: home_WebIndicator
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
-                            radius: 15
-                            Layout.minimumHeight: 25
-                            Layout.minimumWidth: 70
-                            RowLayout {
-                                id: webIndicatorRow
-                                anchors.fill: parent
-                                anchors.leftMargin: 5
-                                anchors.rightMargin: 5
-                                Rectangle {
-                                    id: home_MyacgIndicator
-                                    // Green=Ready, Yellow=Starting/Busy/Restarting, Red=Offline/Error
-                                    color: {
-                                        var s = ScraperSvc.browserState;
-                                        if (s === 2) return Theme.goodColor;           // Ready
-                                        if (s === 1 || s === 3 || s === 4) return "#f0c040"; // Starting/Busy/Restarting
-                                        return Theme.errorColor;                       // Offline / Error
-                                    }
-                                    Behavior on color { ColorAnimation { duration: 300 } }
-                                    radius: 5
-                                    Layout.preferredWidth: 10
-                                    Layout.preferredHeight: 10
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-                                Text {
-                                    id: home_MyacgCurStatusHeader3
-                                    color: Theme.header3Color
-                                    // Map enum int to short display text
-                                    text: {
-                                        var s = ScraperSvc.browserState;
-                                        if (s === 0) return qsTr("離線");
-                                        if (s === 1) return qsTr("啟動中");
-                                        if (s === 2) return qsTr("就緒");
-                                        if (s === 3) return qsTr("執行中");
-                                        if (s === 4) return qsTr("重啟中");
-                                        return qsTr("錯誤");
-                                    }
-                                    font.pixelSize: Constants.header3FontSize
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-                            }
-                        }
-                    }
-
-                    Text {
-                        id: home_WebExcutingHeader3
-                        color: Theme.header3Color
-                        text: qsTr("目前執行:")
-                        font.pixelSize: Constants.header3FontSize
-                    }
-
-                    Text {
-                        id: home_WebExcutedCommandHeader3
-                        color: Theme.header3Color
-                        // Live status message from the scraper daemon
-                        text: ScraperSvc.statusText
-                        font.pixelSize: Constants.header3FontSize
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-
-                    RowLayout {
-                        id: webControlButtonFrame
-                        Layout.fillWidth: true
-
-                        // 重新啟動: kills browser and restarts a fresh session.
-                        // Safe to call at any time — won't crash the app.
-                        // Uses the same account as the last startBrowser() call.
-                        CustomButton {
-                            id: home_WebRestartButton
-                            text: qsTr("重新啟動")
-                            enabled: ScraperSvc.browserState !== 1  // not while Starting
-                            highlighted: ScraperSvc.browserState === 0 || ScraperSvc.browserState === 5
-                            Layout.fillWidth: true
-                            Layout.minimumHeight: 35
-                            Layout.minimumWidth: 85
-                            onClicked: ScraperSvc.restartConfiguredBrowser()
-                        }
-
-                        // 校正: close extra tabs, return to My Store.
-                        CustomButton {
-                            id: home_WebCalibrateButton
-                            text: qsTr("校正")
-                            enabled: ScraperSvc.browserState === 2 || ScraperSvc.browserState === 3
-                            Layout.fillWidth: true
-                            Layout.minimumHeight: 35
-                            Layout.fillHeight: false
-                            Layout.minimumWidth: 85
-                            onClicked: ScraperSvc.calibrate()
-                        }
-                    }
-
-                    RowLayout {
-                        id: queuedTaskFrame
-                        x: 0
-                        y: 196
-                        spacing: 30
-                        Layout.fillWidth: true
-                        Text {
-                            id: home_QueuedTaskHeader3
-                            color: Theme.header3Color
-                            text: qsTr("佇列中的工作:")
-                            font.pixelSize: Constants.header3FontSize
-                        }
-
-                        CustomCheckBox {
-                            id: home_ShowWebOutputCheckBox
-                            text: qsTr("顯示")
-                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        }
-                    }
-
-                    Text {
-                        id: home_TaskListHeader3
-                        color: Theme.header3Color
-                        text: qsTr("列印 PG01234567")
-                        font.pixelSize: Constants.header3FontSize
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-            Card {
-                id: hostDBPanel
-                width: 200
-                Layout.minimumWidth: 250
-                Layout.fillHeight: true
-
-                ColumnLayout {
-                    id: hostDBFrame
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 10
-                    Text {
-                        id: home_DBStatusHeader2
-                        color: Theme.header2Color
-                        text: qsTr("資料庫狀態")
-                        font.pixelSize: Constants.header2FontSize
-                        Layout.bottomMargin: 10
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                    }
-
-                    RowLayout {
-                        id: hostDBStatusFrame
-                        Text {
-                            id: home_HostDBStatus_Header3
-                            color: Theme.header3Color
-                            text: qsTr("遠端資料庫連線狀態:")
-                            font.pixelSize: Constants.header3FontSize
-                        }
-
-                        Rectangle {
-                            id: home_WebIndicator1
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
-                            radius: 15
-                            RowLayout {
-                                id: rowLayout1
-                                anchors.fill: parent
-                                anchors.leftMargin: 5
-                                anchors.rightMargin: 5
-                                anchors.topMargin: 0
-                                anchors.bottomMargin: 0
-                                Rectangle {
-                                    id: hostdbIndicator1
-                                    color: homeView.hostDbOnline ? Theme.goodColor : Theme.errorColor
-                                    radius: 5
-                                    Layout.preferredWidth: 10
-                                    Layout.preferredHeight: 10
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-
-                                Text {
-                                    id: hostdbstatus
-                                    color: Theme.header3Color
-                                    text: homeView.hostDbOnline ? qsTr("online") : qsTr("offline")
-                                    font.pixelSize: Constants.header3FontSize
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-                            }
-                            Layout.minimumWidth: 70
-                            Layout.minimumHeight: 25
-                        }
-                    }
-
-                    RowLayout {
-                        id: hostDBButtonFrame
-                        CustomButton {
-                            id: home_HostDBTestButton
-                            onClicked: SyncSvc.testConnection()
-                            text: qsTr("測試連線")
-                            Layout.minimumWidth: 85
-                            Layout.minimumHeight: 35
-                            Layout.fillWidth: true
-                        }
-
-                        CustomButton {
-                            id: home_HostDBReconnectButton
-                            onClicked: SyncSvc.triggerSync()
-                            text: qsTr("重新連線")
-                            highlighted: true
-                            Layout.minimumWidth: 85
-                            Layout.minimumHeight: 35
-                            Layout.fillWidth: true
-                        }
-                        Layout.fillWidth: true
-                    }
-
-                    RowLayout {
-                        id: localDBStatusFrame
-                        Text {
-                            id: home_LocalDBStatus_Header3
-                            color: Theme.header3Color
-                            text: qsTr("本地資料庫連線狀態:")
-                            font.pixelSize: Constants.header3FontSize
-                        }
-
-                        Rectangle {
-                            id: home_WebIndicator2
-                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, Constants.basicOpacity)
-                            radius: 15
-                            RowLayout {
-                                id: rowLayout2
-                                anchors.fill: parent
-                                anchors.leftMargin: 5
-                                anchors.rightMargin: 5
-                                anchors.topMargin: 0
-                                anchors.bottomMargin: 0
-                                Rectangle {
-                                    id: hostdbIndicator2
-                                    color: Theme.goodColor
-                                    radius: 5
-                                    Layout.preferredWidth: 10
-                                    Layout.preferredHeight: 10
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-
-                                Text {
-                                    id: hostdbstatus1
-                                    color: Theme.header3Color
-                                    text: qsTr("online")
-                                    font.pixelSize: Constants.header3FontSize
-                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                }
-                            }
-                            Layout.minimumWidth: 70
-                            Layout.minimumHeight: 25
-                        }
-                    }
-
-                    RowLayout {
-                        id: localDBButtonFrame
-                        CustomButton {
-                            id: home_LocalDBTestButton
-                            text: qsTr("測試連線")
-                            Layout.minimumWidth: 85
-                            Layout.minimumHeight: 35
-                            Layout.fillWidth: true
-                        }
-
-                        CustomButton {
-                            id: home_LocalDBReconnectButton
-                            text: qsTr("重新連線")
-                            highlighted: true
-                            Layout.minimumWidth: 85
-                            Layout.minimumHeight: 35
-                            Layout.fillWidth: true
-                        }
-                        Layout.fillWidth: true
-                    }
-
-                    RowLayout {
-                        id: queuedTaskFrame1
-                        spacing: 5
-                        Text {
-                            id: home_QueuedTaskHeader4
-                            color: Theme.header3Color
-                            text: qsTr("佇列中的工作:")
-                            font.pixelSize: Constants.header3FontSize
-                        }
-
-                        CustomCheckBox {
-                            id: home_ShowDBOoutputCheckBox
-                            text: qsTr("顯示")
-                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        }
-                        Layout.preferredWidth: 207
-                        Layout.preferredHeight: 48
-                        Layout.fillWidth: true
-                    }
-
-                    Text {
-                        id: home_DBConsoleHeader3
-                        color: Theme.header3Color
-                        text: SyncSvc.statusText.length > 0 ? SyncSvc.statusText : qsTr("POST:")
-                        font.pixelSize: Constants.header3FontSize
-                        Layout.minimumHeight: 50
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-                    }
-
-                    CustomButton {
-                        id: home_DBSettingButton
-                        text: "更改資料庫設定"
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        Layout.preferredWidth: 162
-                        Layout.preferredHeight: 33
-                    }
-                }
+                homeView.waitingForBrowserRestart = false;
+                AppDialog.showError(qsTr("自動化網頁重啟失敗"), reason && reason.length > 0 ? reason : qsTr("自動化網頁目前無法啟動。"));
             }
         }
 
-        RowLayout {
-            id: footerLayout
-            Layout.fillWidth: true
-            spacing: 20
-            Text {
-                id: versionHeader3
-                color: "#ffffff"
-                text: qsTr("version 1.0")
-                font.pixelSize: 12
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: Constants.pageGap
+
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.rowSpan: 1
+                spacing: 14
+
+                MetricCard {
+                    Layout.fillWidth: true
+                    title: qsTr("總貨單")
+                    targetValue: homeView.totalOrders
+                    unit: qsTr("筆")
+                    iconSource: "../assets/images/total_orders.svg"
+                }
+                MetricCard {
+                    Layout.fillWidth: true
+                    title: qsTr("今日完成")
+                    targetValue: homeView.todayProcessed
+                    unit: qsTr("筆")
+                    iconSource: "../assets/images/record.svg"
+                }
+                MetricCard {
+                    Layout.fillWidth: true
+                    title: qsTr("待處理")
+                    targetValue: homeView.pendingOrders
+                    unit: qsTr("筆")
+                    iconSource: "../assets/images/pending.svg"
+                }
+                MetricCard {
+                    Layout.fillWidth: true
+                    title: qsTr("待同步")
+                    targetValue: homeView.pendingSyncCount
+                    unit: qsTr("筆")
+                    iconSource: "../assets/images/history.svg"
+                }
             }
 
-            Text {
-                id: creditsHeader3
-                color: "#ffffff"
-                text: qsTr("koorino")
-                font.pixelSize: 12
-                Layout.fillWidth: false
-                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                Layout.rowSpan: 2
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: Constants.pageGap
+
+                Card {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 620
+                    Layout.minimumHeight: 320
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 12
+
+                        Text {
+                            text: qsTr("系統狀態")
+                            color: Theme.header1Color
+                            font.pixelSize: Constants.header2FontSize
+                            font.bold: true
+                        }
+
+                        ScrollView {
+                            id: leftScroll
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            contentWidth: availableWidth
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                            BasicControls.ScrollBar.vertical: BasicControls.ScrollBar {
+                                id: leftScrollBar
+                                policy: BasicControls.ScrollBar.AsNeeded
+                                width: 8
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.rightMargin: 2
+
+                                contentItem: Rectangle {
+                                    implicitWidth: 5
+                                    implicitHeight: 30
+                                    radius: 3
+                                    color: leftScrollBar.pressed ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.6) : leftScrollBar.hovered ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.4) : Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.2)
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 120
+                                            easing.type: Easing.InOutCubic
+                                        }
+                                    }
+                                }
+
+                                background: Item {
+                                    implicitWidth: 8
+                                }
+                            }
+
+                            Column {
+                                width: leftScroll.availableWidth
+                                spacing: 12
+
+                                GridLayout {
+                                    width: parent.width
+                                    columns: 3
+                                    columnSpacing: 10
+                                    rowSpacing: 10
+
+                                    Repeater {
+                                        model: [
+                                            {
+                                                "title": qsTr("自動化網頁"),
+                                                "label": homeView.browserStatusLabel(),
+                                                "color": homeView.browserStatusColor()
+                                            },
+                                            {
+                                                "title": qsTr("主機同步"),
+                                                "label": homeView.hostStatusLabel(),
+                                                "color": homeView.hostDbOnline ? Theme.goodColor : Theme.errorColor
+                                            },
+                                            {
+                                                "title": qsTr("本機資料庫"),
+                                                "label": homeView.localStatusLabel(),
+                                                "color": homeView.localDbOnline ? Theme.goodColor : Theme.errorColor
+                                            }
+                                        ]
+
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 74
+                                            radius: homeView.sectionRadius
+                                            color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                                            border.color: Theme.borderColor
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 12
+                                                spacing: 8
+
+                                                Text {
+                                                    text: modelData.title
+                                                    color: Theme.headerSubColor
+                                                    font.pixelSize: Constants.header3FontSize
+                                                }
+                                                StatusLight {
+                                                    label: modelData.label
+                                                    indicatorColor: modelData.color
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.10)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: summaryCol.implicitHeight + homeView.sectionPadding * 2
+
+                                    Column {
+                                        id: summaryCol
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("目前總覽")
+                                            color: Theme.header1Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: homeView.statusSummaryText()
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: detailGrid.implicitHeight + homeView.sectionPadding * 2
+
+                                    GridLayout {
+                                        id: detailGrid
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        columns: 2
+                                        columnSpacing: 14
+                                        rowSpacing: 10
+
+                                        Text {
+                                            text: qsTr("自動化網頁狀態")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: ScraperSvc.statusText
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.Wrap
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("同步狀態")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: homeView.hostDetailText()
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.Wrap
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("主機位址")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: SyncSvc.hostBaseUrl && SyncSvc.hostBaseUrl.length > 0 ? SyncSvc.hostBaseUrl : qsTr("尚未設定")
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WrapAnywhere
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("資料庫檢查")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: AppSupport.localDbStatusText
+                                            color: homeView.localDbOnline ? Theme.header3Color : Theme.warningColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.Wrap
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("登入模式")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: homeView.autoLoginLabel()
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.Wrap
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: pathGrid.implicitHeight + homeView.sectionPadding * 2
+
+                                    GridLayout {
+                                        id: pathGrid
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        columns: 2
+                                        columnSpacing: 14
+                                        rowSpacing: 10
+
+                                        Text {
+                                            text: qsTr("設定檔")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: homeView.shortenPath(AppSettings.configFilePath)
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WrapAnywhere
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("資料庫位置")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: homeView.shortenPath(AppSupport.databasePath)
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WrapAnywhere
+                                            Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: qsTr("記錄資料夾")
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+                                        Text {
+                                            text: homeView.shortenPath(AppSupport.logDirectoryPath)
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WrapAnywhere
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2
+                            columnSpacing: 10
+                            rowSpacing: 10
+
+                            CustomButton {
+                                text: qsTr("重新啟動自動化網頁")
+                                highlighted: ScraperSvc.browserState === 0 || ScraperSvc.browserState === 5
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    homeView.waitingForBrowserRestart = true;
+                                    ScraperSvc.restartConfiguredBrowser();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("重新同步")
+                                highlighted: true
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    homeView.waitingForSync = true;
+                                    SyncSvc.triggerSync();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("測試主機連線")
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    homeView.waitingForConnectionTest = true;
+                                    SyncSvc.testConnection();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("測試本機資料庫")
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    AppSupport.testLocalDatabase();
+                                    homeView.showOperationResult(AppSupport.localDbHealthy, qsTr("本機資料庫測試"), AppSupport.localDbStatusText);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 440
+                    Layout.minimumHeight: 320
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 12
+
+                        Text {
+                            text: qsTr("工作提醒與診斷")
+                            color: Theme.header1Color
+                            font.pixelSize: Constants.header2FontSize
+                            font.bold: true
+                        }
+
+                        ScrollView {
+                            id: rightScroll
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            contentWidth: availableWidth
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                            BasicControls.ScrollBar.vertical: BasicControls.ScrollBar {
+                                id: rightScrollBar
+                                policy: BasicControls.ScrollBar.AsNeeded
+                                width: 8
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.rightMargin: 2
+
+                                contentItem: Rectangle {
+                                    implicitWidth: 5
+                                    implicitHeight: 30
+                                    radius: 3
+                                    color: rightScrollBar.pressed ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.6) : rightScrollBar.hovered ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.4) : Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.2)
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 120
+                                            easing.type: Easing.InOutCubic
+                                        }
+                                    }
+                                }
+
+                                background: Item {
+                                    implicitWidth: 8
+                                }
+                            }
+
+                            Column {
+                                width: rightScroll.availableWidth
+                                spacing: 12
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.10)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: hintCol.implicitHeight + homeView.sectionPadding * 2
+
+                                    Column {
+                                        id: hintCol
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("作業建議")
+                                            color: Theme.header1Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: homeView.workHintText()
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: syncCol.implicitHeight + homeView.sectionPadding * 2
+
+                                    Column {
+                                        id: syncCol
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("同步與錯誤提醒")
+                                            color: Theme.header1Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: homeView.syncSummaryText()
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                        Text {
+                                            text: homeView.errorJobs > 0 ? qsTr("目前有 %1 筆同步錯誤待處理。").arg(homeView.errorJobs) : qsTr("目前沒有額外錯誤工作。")
+                                            color: homeView.errorJobs > 0 ? Theme.warningColor : Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: quickCol.implicitHeight + homeView.sectionPadding * 2
+
+                                    Column {
+                                        id: quickCol
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("快速資訊")
+                                            color: Theme.header1Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: homeView.diagnosticsSummaryText()
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                        Text {
+                                            text: qsTr("登入模式：%1").arg(homeView.autoLoginLabel())
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WordWrap
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    radius: homeView.sectionRadius
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.06)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: logCol.implicitHeight + homeView.sectionPadding * 2
+
+                                    Column {
+                                        id: logCol
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.margins: homeView.sectionPadding
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("記錄與診斷")
+                                            color: Theme.header1Color
+                                            font.pixelSize: Constants.header3FontSize
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: qsTr("目前記錄檔：%1").arg(homeView.shortenPath(AppSupport.currentLogFilePath))
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            wrapMode: Text.WrapAnywhere
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2
+                            columnSpacing: 10
+                            rowSpacing: 10
+
+                            CustomButton {
+                                text: qsTr("開啟目前記錄檔")
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    if (!AppSupport.openCurrentLogFile())
+                                        homeView.showOpenLogError();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("開啟記錄資料夾")
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    if (!AppSupport.openLogFolder())
+                                        homeView.showOpenLogError();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("開啟資料庫位置")
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: {
+                                    if (!AppSupport.openDatabaseFolder())
+                                        homeView.showOpenDatabaseError();
+                                }
+                            }
+
+                            CustomButton {
+                                text: qsTr("前往列印")
+                                highlighted: true
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: homeView.actionButtonHeight
+                                onClicked: NavStore.route = "Printing"
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -169,6 +169,7 @@ private:
                        const QString& loginAccount,
                        const QString& password,
                        bool manualLogin);
+    void clearTimers();
 
     // Parse a single JSON event line received from the daemon stdout.
     void handleEvent(const QByteArray& line);

@@ -44,6 +44,7 @@ public:
     Q_INVOKABLE QString orderNumberAt(int row) const;
     Q_INVOKABLE QVariantMap orderDetailsByOrderNumber(const QString& orderNumber) const;
     Q_INVOKABLE bool removeOrder(int row);
+    Q_INVOKABLE bool removeOrderByOrderNumber(const QString& orderNumber);
     Q_INVOKABLE void refresh();
 
 signals:
