@@ -318,7 +318,7 @@ ContentPage {
                             Layout.fillWidth: true
                             Layout.minimumHeight: 35
                             Layout.minimumWidth: 85
-                            onClicked: ScraperSvc.restartBrowser("")
+                            onClicked: ScraperSvc.restartConfiguredBrowser()
                         }
 
                         // 校正: close extra tabs, return to My Store.

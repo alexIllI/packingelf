@@ -112,10 +112,18 @@ public:
     //   accountName = "" → --manual-login (user types credentials in browser)
     //   accountName = "子午計畫" → reads from encrypted account store
     Q_INVOKABLE void startBrowser(const QString& accountName = QString());
+    Q_INVOKABLE void startBrowserWithCredentials(const QString& accountName,
+                                                 const QString& loginAccount,
+                                                 const QString& password);
+    Q_INVOKABLE void startConfiguredBrowser();
 
     // Kill any running daemon and start a fresh one.
     // Safe to call at any time — will not crash the Qt app.
     Q_INVOKABLE void restartBrowser(const QString& accountName = QString());
+    Q_INVOKABLE void restartBrowserWithCredentials(const QString& accountName,
+                                                   const QString& loginAccount,
+                                                   const QString& password);
+    Q_INVOKABLE void restartConfiguredBrowser();
 
     // Send {"cmd":"calibrate"} to the running daemon.
     // Closes extra tabs, returns to My Store page.
@@ -157,6 +165,11 @@ private slots:
     void onScrapeTimeout();
 
 private:
+    void launchBrowser(const QString& accountName,
+                       const QString& loginAccount,
+                       const QString& password,
+                       bool manualLogin);
+
     // Parse a single JSON event line received from the daemon stdout.
     void handleEvent(const QByteArray& line);
 
@@ -177,9 +190,16 @@ private:
     QString      m_statusText   = QStringLiteral("未啟動");
 
     QString      m_pendingAccount;           // Account name for current/next startBrowser
+    QString      m_pendingLoginAccount;
+    QString      m_pendingPassword;
     QString      m_currentOrderId;          // orderId of the in-flight scrape
     QByteArray   m_stdoutBuf;               // Accumulates partial stdout lines
     bool         m_expectedShutdown = false;
+    QString      m_lastDaemonError;
+    bool         m_preferAutoLogin = false;
+    QString      m_preferredAccountName;
+    QString      m_preferredLoginAccount;
+    QString      m_preferredPassword;
 
     // ── Executable discovery (set once in constructor) ────────────────
     // Production: m_scraperExe is the path to scraper.exe
@@ -193,4 +213,10 @@ private:
 
     int          m_startupTimeoutMs = 180'000;  // 3 min (includes manual login wait)
     int          m_scrapeTimeoutMs  = 120'000;  // 2 min per order
+
+public:
+    void setPreferredLoginMode(bool autoLoginEnabled,
+                               const QString& accountName,
+                               const QString& loginAccount,
+                               const QString& password);
 };

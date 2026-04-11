@@ -12,3 +12,4 @@ CustomDropdown 1.0 components/CustomDropdown.qml
 singleton Constants 1.0 Constants.qml
 singleton Theme 1.0 Theme.qml
 singleton NavStore 1.0 NavStore.qml
+singleton AppDialog 1.0 AppDialog.qml

@@ -158,7 +158,7 @@ bool Database::migrate()
                     " CASE WHEN created_by IS NULL OR created_by = '' THEN 'legacy-client' ELSE created_by END,"
                     " created_at, updated_at, NULL, 0 "
                     "FROM orders_legacy_v1 "
-                    "WHERE lower(status) IN ('success', 'canceled', 'returned') "
+                    "WHERE lower(status) IN ('success', 'canceled', 'closed') "
                     "AND COALESCE(order_date, '') <> '' "
                     "AND COALESCE(buyer_name, '') <> ''"), "orders legacy migrate")) {
                 return false;
@@ -215,6 +215,30 @@ bool Database::migrate()
 
         q.exec(QStringLiteral("UPDATE schema_version SET version = 2"));
         currentVersion = 2;
+    }
+
+    if (currentVersion < 3) {
+        if (!execOrWarn(q, QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS pending_orders ("
+                " id TEXT PRIMARY KEY,"
+                " order_number TEXT NOT NULL UNIQUE,"
+                " remark TEXT,"
+                " created_at TEXT NOT NULL,"
+                " updated_at TEXT NOT NULL"
+                ")"), "pending_orders create")) {
+            return false;
+        }
+
+        q.exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_pending_orders_created_at "
+            "ON pending_orders(created_at)"));
+
+        q.exec(QStringLiteral(
+            "UPDATE orders SET order_status = 'canceled' "
+            "WHERE lower(order_status) = 'returned'"));
+
+        q.exec(QStringLiteral("UPDATE schema_version SET version = 3"));
+        currentVersion = 3;
     }
 
     qDebug() << "[Database] Migration complete. Version:" << currentVersion;

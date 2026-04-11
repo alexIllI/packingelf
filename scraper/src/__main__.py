@@ -48,6 +48,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 
 from .models  import ScraperStatus, ScrapeResult
@@ -76,6 +77,13 @@ async def _do_login(scraper: MyAcgScraper, args: argparse.Namespace) -> bool:
     """
     if args.manual_login:
         err = await scraper.login_manual()
+    elif getattr(args, "direct_login", False):
+        login_account = os.environ.get("PACKINGELF_MYACG_LOGIN", "").strip()
+        password = os.environ.get("PACKINGELF_MYACG_PASSWORD", "")
+        if not login_account or not password:
+            emit({"type": "error", "msg": "Direct login credentials are missing."})
+            return False
+        err = await scraper.login(login_account, password)
     else:
         store    = AccountStore()
         acct_inf = store.get(args.account)
@@ -203,6 +211,13 @@ async def cmd_scrape(args: argparse.Namespace) -> None:
 
         if args.manual_login:
             err = await scraper.login_manual()
+        elif getattr(args, "direct_login", False):
+            login_account = os.environ.get("PACKINGELF_MYACG_LOGIN", "").strip()
+            password = os.environ.get("PACKINGELF_MYACG_PASSWORD", "")
+            if not login_account or not password:
+                emit_error(ScraperStatus.ERROR, "Direct login credentials are missing.")
+                return
+            err = await scraper.login(login_account, password)
         else:
             store    = AccountStore()
             acct_inf = store.get(args.account)
@@ -295,8 +310,12 @@ def build_parser() -> argparse.ArgumentParser:
     dlogin = dp.add_mutually_exclusive_group(required=True)
     dlogin.add_argument("--account",
                         help="Friendly account name in encrypted store")
+    dlogin.add_argument("--direct-login", action="store_true",
+                        help="Read login/password from environment variables")
     dlogin.add_argument("--manual-login", action="store_true",
                         help="Wait for you to log in manually in the browser")
+    dp.add_argument("--account-label",
+                    help="Friendly label for direct login mode")
 
     # ── scrape (one-shot testing) ─────────────────────────────────
     sp = sub.add_parser("scrape", help="One-shot: scrape and print one order then exit")
@@ -304,7 +323,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--headless", action="store_true")
     slogin = sp.add_mutually_exclusive_group(required=True)
     slogin.add_argument("--account")
+    slogin.add_argument("--direct-login", action="store_true")
     slogin.add_argument("--manual-login", action="store_true")
+    sp.add_argument("--account-label")
 
     # ── account ───────────────────────────────────────────────────
     ap   = sub.add_parser("account", help="Manage stored credentials")

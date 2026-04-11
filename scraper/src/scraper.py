@@ -354,6 +354,7 @@ class MyAcgScraper:
 
         # ── 3. Check: canceled? ───────────────────────────────────
         # Real element: <span class="t_red">取消原因</span>
+        final_status: Optional[ScraperStatus] = None
         log("  Step 3/9 - Checking if order is canceled...")
         try:
             canceled = self._page.locator(
@@ -361,7 +362,7 @@ class MyAcgScraper:
             )
             if await canceled.is_visible(timeout=TIMEOUT_SHORT):
                 log("    -> ORDER_CANCELED")
-                return ScrapeResult(ScraperStatus.ORDER_CANCELED)
+                final_status = ScraperStatus.ORDER_CANCELED
         except: pass
 
         # ── 4. Check: store/order closed? ────────────────────────
@@ -369,9 +370,9 @@ class MyAcgScraper:
         log("  Step 4/9 - Checking if order is closed...")
         try:
             closed = self._page.locator('[data-state="close"]')
-            if await closed.is_visible(timeout=TIMEOUT_SHORT):
+            if final_status is None and await closed.is_visible(timeout=TIMEOUT_SHORT):
                 log("    -> STORE_CLOSED (data-state=close)")
-                return ScrapeResult(ScraperStatus.STORE_CLOSED)
+                final_status = ScraperStatus.STORE_CLOSED
         except: pass
 
         # ── 5. Coupon detection ───────────────────────────────────
@@ -437,7 +438,7 @@ class MyAcgScraper:
             if await picked_up.is_visible(timeout=TIMEOUT_SHORT):
                 log("    -> Order already picked up. Skipping print flow.")
                 return ScrapeResult(
-                    status=ScraperStatus.SUCCESS,
+                    status=ScraperStatus.ALREADY_PICKED_UP,
                     buyer_name=buyer_name,
                     order_date=order_date,
                     using_coupon=using_coupon,
@@ -445,6 +446,15 @@ class MyAcgScraper:
                 )
         except Exception as e:
             log(f"    Pick-up marker not detected: {e}")
+
+        if final_status is not None:
+            log(f"  Finalized order state detected before print: {final_status.value}")
+            return ScrapeResult(
+                status=final_status,
+                buyer_name=buyer_name,
+                order_date=order_date,
+                using_coupon=using_coupon,
+            )
 
         numeric_id = order_number[3:]
         log(f"  Step 8/9 - Clicking checkbox via JS (oid_check_{numeric_id})...")

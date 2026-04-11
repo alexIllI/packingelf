@@ -61,6 +61,17 @@ ScrapeSubmission OrdersRepository::rowToSubmission(const QSqlQuery& q) const
     return submission;
 }
 
+PendingOrder OrdersRepository::rowToPendingOrder(const QSqlQuery& q) const
+{
+    PendingOrder pending;
+    pending.id = q.value(QStringLiteral("id")).toString();
+    pending.orderNumber = q.value(QStringLiteral("order_number")).toString();
+    pending.remark = q.value(QStringLiteral("remark")).toString();
+    pending.createdAt = q.value(QStringLiteral("created_at")).toString();
+    pending.updatedAt = q.value(QStringLiteral("updated_at")).toString();
+    return pending;
+}
+
 QVector<Order> OrdersRepository::fetchAll() const
 {
     QVector<Order> results;
@@ -285,6 +296,79 @@ bool OrdersRepository::deleteSubmission(const QString& submissionId)
     q.bindValue(QStringLiteral(":submissionId"), submissionId);
     if (!q.exec()) {
         qWarning() << "[OrdersRepo] deleteSubmission failed:" << q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() > 0;
+}
+
+QVector<PendingOrder> OrdersRepository::fetchPendingOrders() const
+{
+    QVector<PendingOrder> results;
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "SELECT * FROM pending_orders ORDER BY created_at DESC"));
+    if (!q.exec()) {
+        qWarning() << "[OrdersRepo] fetchPendingOrders failed:" << q.lastError().text();
+        return results;
+    }
+
+    while (q.next())
+        results.append(rowToPendingOrder(q));
+    return results;
+}
+
+std::optional<PendingOrder> OrdersRepository::createPendingOrder(const QString& orderNumber,
+                                                                 const QString& remark)
+{
+    PendingOrder pending;
+    pending.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    pending.orderNumber = orderNumber;
+    pending.remark = remark;
+    pending.createdAt = nowIsoUtc();
+    pending.updatedAt = pending.createdAt;
+
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "INSERT INTO pending_orders ("
+        " id, order_number, remark, created_at, updated_at"
+        ") VALUES ("
+        " :id, :orderNumber, :remark, :createdAt, :updatedAt"
+        ") "
+        "ON CONFLICT(order_number) DO UPDATE SET "
+        " remark = excluded.remark,"
+        " updated_at = excluded.updated_at"));
+    q.bindValue(QStringLiteral(":id"), pending.id);
+    q.bindValue(QStringLiteral(":orderNumber"), pending.orderNumber);
+    q.bindValue(QStringLiteral(":remark"), pending.remark);
+    q.bindValue(QStringLiteral(":createdAt"), pending.createdAt);
+    q.bindValue(QStringLiteral(":updatedAt"), pending.updatedAt);
+
+    if (!q.exec()) {
+        qWarning() << "[OrdersRepo] createPendingOrder failed:" << q.lastError().text();
+        return std::nullopt;
+    }
+
+    QSqlQuery fetch(m_db);
+    fetch.prepare(QStringLiteral(
+        "SELECT * FROM pending_orders WHERE order_number = :orderNumber LIMIT 1"));
+    fetch.bindValue(QStringLiteral(":orderNumber"), pending.orderNumber);
+    if (!fetch.exec()) {
+        qWarning() << "[OrdersRepo] createPendingOrder fetch failed:" << fetch.lastError().text();
+        return std::nullopt;
+    }
+
+    if (fetch.next())
+        return rowToPendingOrder(fetch);
+    return pending;
+}
+
+bool OrdersRepository::deletePendingOrder(const QString& id)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("DELETE FROM pending_orders WHERE id = :id"));
+    q.bindValue(QStringLiteral(":id"), id);
+    if (!q.exec()) {
+        qWarning() << "[OrdersRepo] deletePendingOrder failed:" << q.lastError().text();
         return false;
     }
     return q.numRowsAffected() > 0;

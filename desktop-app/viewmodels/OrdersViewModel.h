@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QVariantMap>
 #include <QVector>
 #include <memory>
 
@@ -40,6 +41,8 @@ public:
 
     Q_INVOKABLE QString submitForScrape(const QString& orderNumber,
                                         const QString& invoiceNumber);
+    Q_INVOKABLE QString orderNumberAt(int row) const;
+    Q_INVOKABLE QVariantMap orderDetailsByOrderNumber(const QString& orderNumber) const;
     Q_INVOKABLE bool removeOrder(int row);
     Q_INVOKABLE void refresh();
 

@@ -42,6 +42,7 @@ add_executable(packingelf
   data/Database.cpp
   data/OrdersRepository.cpp
   viewmodels/OrdersViewModel.cpp
+  viewmodels/PendingOrdersViewModel.cpp
   viewmodels/DashboardViewModel.cpp
   services/HostClient.cpp
   services/OutboxStore.cpp
@@ -62,6 +63,7 @@ set(qml_singletons
   ui/Theme.qml 
   ui/Constants.qml 
   ui/NavStore.qml
+  ui/AppDialog.qml
 )
 set_source_files_properties(${qml_singletons} PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
@@ -77,6 +79,7 @@ qt_add_qml_module(packingelf
   # QML files
   QML_FILES
     ui/App.qml
+    ui/AppDialog.qml
     ui/views/MainScreen.qml
     ui/views/HomePage.qml
     ui/views/SettingPage.qml
@@ -95,6 +98,7 @@ qt_add_qml_module(packingelf
     ui/components/CustomSpinBox.qml
     ui/components/CustomProgressBar.qml
     ui/components/CustomBusyIndicator.qml
+    ui/components/StatusPopup.qml
 
     # Singletons
     ui/Constants.qml
@@ -115,6 +119,11 @@ qt_add_qml_module(packingelf
     ui/assets/images/total_orders.svg
     ui/assets/images/shipped.svg
     ui/assets/images/pending.svg
+    ui/assets/images/ok.png
+    ui/assets/images/info.png
+    ui/assets/images/warning.png
+    ui/assets/images/question.png
+    ui/assets/images/error.png
 )
 
 # Post-build: deploy Qt dependencies (DLLs, QML modules, translations)
