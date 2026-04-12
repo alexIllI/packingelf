@@ -52,6 +52,21 @@ final class HostApiServer {
         return exchange -> {
             try {
                 handler.handle(exchange);
+            } catch (HttpErrorException ex) {
+                ObjectNode error = objectMapper.createObjectNode();
+                error.put("ok", false);
+                error.put("message", ex.getMessage());
+                writeJson(exchange, ex.statusCode, error);
+            } catch (SecurityException ex) {
+                ObjectNode error = objectMapper.createObjectNode();
+                error.put("ok", false);
+                error.put("message", ex.getMessage());
+                writeJson(exchange, 401, error);
+            } catch (IllegalArgumentException ex) {
+                ObjectNode error = objectMapper.createObjectNode();
+                error.put("ok", false);
+                error.put("message", ex.getMessage());
+                writeJson(exchange, 400, error);
             } catch (Exception ex) {
                 ObjectNode error = objectMapper.createObjectNode();
                 error.put("ok", false);
@@ -64,15 +79,21 @@ final class HostApiServer {
     }
 
     private void handleHealth(HttpExchange exchange) throws IOException, SQLException {
+        requireMethod(exchange, "GET");
+
         ObjectNode response = objectMapper.createObjectNode();
         response.put("ok", true);
         response.put("message", "PackingElf Host online");
         response.put("latest_revision", repository.latestRevision());
+        response.put("active_order_count", repository.activeOrderCount());
+        response.put("paired_client_count", repository.pairedClientCount());
         response.put("port", port);
         writeJson(exchange, 200, response);
     }
 
     private void handlePair(HttpExchange exchange) throws IOException, SQLException {
+        requireMethod(exchange, "POST");
+
         JsonNode body = readBody(exchange);
         String token = exchange.getRequestHeaders().getFirst("X-Pairing-Token");
         repository.pairClient(body.path("client_id").asText(), body.path("client_name").asText(), token);
@@ -85,6 +106,8 @@ final class HostApiServer {
     }
 
     private void handleMutations(HttpExchange exchange) throws IOException, SQLException {
+        requireMethod(exchange, "POST");
+
         JsonNode body = readBody(exchange);
         String token = exchange.getRequestHeaders().getFirst("X-Pairing-Token");
 
@@ -101,12 +124,15 @@ final class HostApiServer {
     }
 
     private void handleChanges(HttpExchange exchange) throws IOException, SQLException {
+        requireMethod(exchange, "GET");
+
         Map<String, String> query = parseQuery(exchange.getRequestURI());
         long sinceRevision = Long.parseLong(query.getOrDefault("since_revision", "0"));
         int limit = Integer.parseInt(query.getOrDefault("limit", "200"));
         String token = exchange.getRequestHeaders().getFirst("X-Pairing-Token");
+        String clientId = exchange.getRequestHeaders().getFirst("X-Client-Id");
 
-        ArrayNode changes = repository.changesSince(token, sinceRevision, limit);
+        ArrayNode changes = repository.changesSince(clientId, token, sinceRevision, limit);
         ObjectNode response = objectMapper.createObjectNode();
         response.put("ok", true);
         response.put("message", "Changes fetched");
@@ -151,8 +177,23 @@ final class HostApiServer {
         return values;
     }
 
+    private void requireMethod(HttpExchange exchange, String expectedMethod) {
+        if (!expectedMethod.equalsIgnoreCase(exchange.getRequestMethod())) {
+            throw new HttpErrorException(405, "Method not allowed");
+        }
+    }
+
     @FunctionalInterface
     private interface JsonHandler {
         void handle(HttpExchange exchange) throws Exception;
+    }
+
+    private static final class HttpErrorException extends RuntimeException {
+        private final int statusCode;
+
+        private HttpErrorException(int statusCode, String message) {
+            super(message);
+            this.statusCode = statusCode;
+        }
     }
 }

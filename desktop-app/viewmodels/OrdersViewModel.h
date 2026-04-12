@@ -21,6 +21,7 @@ public:
         InvoiceNumberRole,
         OrderDateRole,
         BuyerNameRole,
+        TotalAmountRole,
         StatusRole,
         UsingCouponRole,
         CreatedByRole,

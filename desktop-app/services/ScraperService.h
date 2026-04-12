@@ -48,6 +48,7 @@
 #include <QTimer>
 #include <QString>
 #include <QByteArray>
+#include <QVariantMap>
 
 // ─── Result struct ────────────────────────────────────────────
 // Mirrors the JSON keys in scrape_result events from the daemon.
@@ -55,6 +56,7 @@ struct ScraperResult {
     QString status;          // ScraperStatus value string
     QString buyerName;
     QString orderDate;
+    qint64  totalAmount = 0;
     bool    usingCoupon = false;
     QString message;         // Non-empty on any failure
 
@@ -147,6 +149,7 @@ signals:
     // ── Scrape result signals ─────────────────────────────────
     // Emitted when a scrape_result event arrives from the daemon.
     void scraperFinished(const QString& orderId, const ScraperResult& result);
+    void scraperFinishedForUi(const QString& orderId, const QVariantMap& result);
 
     // Emitted on timeout or process crash during a scrape.
     void scraperFailed(const QString& orderId, const QString& reason);

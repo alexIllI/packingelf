@@ -66,6 +66,7 @@ QString OutboxStore::enqueueUpsertOrder(const Order& order, const QString& clien
         { QStringLiteral("invoice_number"), order.invoiceNumber },
         { QStringLiteral("order_date"), order.orderDate },
         { QStringLiteral("buyer_name"), order.buyerName },
+        { QStringLiteral("total_amount"), order.totalAmount },
         { QStringLiteral("order_status"), order.orderStatus },
         { QStringLiteral("using_coupon"), order.usingCoupon },
         { QStringLiteral("created_by_client_id"), order.createdByClientId },

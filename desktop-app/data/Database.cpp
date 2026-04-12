@@ -241,6 +241,19 @@ bool Database::migrate()
         currentVersion = 3;
     }
 
+    if (currentVersion < 4) {
+        if (!tableHasColumn(m_db, QStringLiteral("orders"), QStringLiteral("total_amount"))) {
+            if (!execOrWarn(q, QStringLiteral(
+                    "ALTER TABLE orders ADD COLUMN total_amount INTEGER NOT NULL DEFAULT 0"),
+                    "orders add total_amount")) {
+                return false;
+            }
+        }
+
+        q.exec(QStringLiteral("UPDATE schema_version SET version = 4"));
+        currentVersion = 4;
+    }
+
     qDebug() << "[Database] Migration complete. Version:" << currentVersion;
     return true;
 }

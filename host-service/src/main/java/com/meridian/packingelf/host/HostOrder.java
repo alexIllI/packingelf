@@ -6,6 +6,7 @@ public record HostOrder(
     String invoiceNumber,
     String buyerName,
     String orderDate,
+    long totalAmount,
     String orderStatus,
     boolean usingCoupon,
     String createdByClientId,

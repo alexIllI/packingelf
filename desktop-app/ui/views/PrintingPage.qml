@@ -151,8 +151,13 @@ ContentPage {
         return usingCoupon ? qsTr("有") : qsTr("無");
     }
 
+    function formatTotalAmount(totalAmount) {
+        var amount = Number(totalAmount || 0);
+        return amount > 0 ? String(amount) : qsTr("未記錄");
+    }
+
     function formatOrderInfoMessage(details) {
-        return qsTr("貨單號碼：%1\n發票號碼：%2\n建立時間：%3\n目前狀態：%4\n優惠券：%5").arg(String(details.orderNumber || qsTr("未記錄"))).arg(String(details.invoiceNumber || qsTr("未記錄"))).arg(String(details.createdAt || qsTr("未記錄"))).arg(formatOrderStatus(details.status)).arg(formatCouponFlag(Boolean(details.usingCoupon)));
+        return qsTr("貨單號碼：%1\n發票號碼：%2\n建立時間：%3\n目前狀態：%4\n總金額：%5\n優惠券：%6").arg(String(details.orderNumber || qsTr("未記錄"))).arg(String(details.invoiceNumber || qsTr("未記錄"))).arg(String(details.createdAt || qsTr("未記錄"))).arg(formatOrderStatus(details.status)).arg(formatTotalAmount(details.totalAmount)).arg(formatCouponFlag(Boolean(details.usingCoupon)));
     }
 
     function normalizedInvoiceText(rawText) {
@@ -291,8 +296,8 @@ ContentPage {
         }
 
         if (normalizedStatus === "ORDER_CANCELED" || normalizedStatus === "CANCELED") {
-            printingView.lastResult = qsTr("訂單已取消。");
-            AppDialog.showWarning(qsTr("訂單已取消"), qsTr("這筆貨單已取消，未進行列印。"));
+            printingView.lastResult = qsTr("該訂單已取消。");
+            AppDialog.showWarning(qsTr("該訂單已取消"), qsTr("這筆貨單已取消，未進行列印。"));
             return;
         }
 
@@ -442,8 +447,8 @@ ContentPage {
 
     Connections {
         target: ScraperSvc
-        function onScraperFinished(submissionId, result) {
-            printingView.presentScrapeOutcome(result);
+        function onScraperFinishedForUi(submissionId, result) {
+            printingView.presentScrapeOutcome(result || {});
         }
 
         function onScraperFailed(submissionId, reason) {
@@ -680,7 +685,12 @@ ContentPage {
                             {
                                 title: qsTr("買家"),
                                 role: "accountName",
-                                width: 0.15
+                                width: 0.12
+                            },
+                            {
+                                title: qsTr("總金額"),
+                                role: "totalAmount",
+                                width: 0.13
                             },
                             {
                                 title: qsTr("狀態"),

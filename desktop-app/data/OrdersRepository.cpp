@@ -37,6 +37,7 @@ Order OrdersRepository::rowToOrder(const QSqlQuery& q) const
     o.invoiceNumber     = q.value(QStringLiteral("invoice_number")).toString();
     o.orderDate         = q.value(QStringLiteral("order_date")).toString();
     o.buyerName         = q.value(QStringLiteral("buyer_name")).toString();
+    o.totalAmount       = q.value(QStringLiteral("total_amount")).toLongLong();
     o.orderStatus       = q.value(QStringLiteral("order_status")).toString();
     o.usingCoupon       = q.value(QStringLiteral("using_coupon")).toBool();
     o.createdByClientId = q.value(QStringLiteral("created_by_client_id")).toString();
@@ -135,11 +136,11 @@ bool OrdersRepository::upsertOrder(const Order& order)
     QSqlQuery q(m_db);
     q.prepare(QStringLiteral(
         "INSERT INTO orders ("
-        " id, order_number, invoice_number, order_date, buyer_name, order_status,"
+        " id, order_number, invoice_number, order_date, buyer_name, total_amount, order_status,"
         " using_coupon, created_by_client_id, updated_by_client_id,"
         " created_at, updated_at, deleted_at, server_revision"
         ") VALUES ("
-        " :id, :orderNumber, :invoiceNumber, :orderDate, :buyerName, :orderStatus,"
+        " :id, :orderNumber, :invoiceNumber, :orderDate, :buyerName, :totalAmount, :orderStatus,"
         " :usingCoupon, :createdByClientId, :updatedByClientId,"
         " :createdAt, :updatedAt, :deletedAt, :serverRevision"
         ") "
@@ -147,6 +148,7 @@ bool OrdersRepository::upsertOrder(const Order& order)
         " invoice_number = excluded.invoice_number,"
         " order_date = excluded.order_date,"
         " buyer_name = excluded.buyer_name,"
+        " total_amount = excluded.total_amount,"
         " order_status = excluded.order_status,"
         " using_coupon = excluded.using_coupon,"
         " updated_by_client_id = excluded.updated_by_client_id,"
@@ -159,6 +161,7 @@ bool OrdersRepository::upsertOrder(const Order& order)
     q.bindValue(QStringLiteral(":invoiceNumber"), order.invoiceNumber);
     q.bindValue(QStringLiteral(":orderDate"), order.orderDate);
     q.bindValue(QStringLiteral(":buyerName"), order.buyerName);
+    q.bindValue(QStringLiteral(":totalAmount"), order.totalAmount);
     q.bindValue(QStringLiteral(":orderStatus"), order.orderStatus);
     q.bindValue(QStringLiteral(":usingCoupon"), order.usingCoupon ? 1 : 0);
     q.bindValue(QStringLiteral(":createdByClientId"), order.createdByClientId);

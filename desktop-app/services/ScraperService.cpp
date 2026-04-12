@@ -31,9 +31,21 @@ ScraperResult ScraperResult::fromJson(const QByteArray &jsonLine) {
   result.status = obj.value(QStringLiteral("status")).toString();
   result.buyerName = obj.value(QStringLiteral("buyer_name")).toString();
   result.orderDate = obj.value(QStringLiteral("order_date")).toString();
+  result.totalAmount = obj.value(QStringLiteral("total_amount")).toInteger(0);
   result.usingCoupon = obj.value(QStringLiteral("using_coupon")).toBool(false);
   result.message = obj.value(QStringLiteral("message")).toString();
   return result;
+}
+
+static QVariantMap scraperResultToVariantMap(const ScraperResult &result) {
+  QVariantMap map;
+  map.insert(QStringLiteral("status"), result.status);
+  map.insert(QStringLiteral("buyerName"), result.buyerName);
+  map.insert(QStringLiteral("orderDate"), result.orderDate);
+  map.insert(QStringLiteral("totalAmount"), result.totalAmount);
+  map.insert(QStringLiteral("usingCoupon"), result.usingCoupon);
+  map.insert(QStringLiteral("message"), result.message);
+  return map;
 }
 
 ScraperService::ScraperService(QObject *parent) : QObject(parent) {
@@ -422,6 +434,7 @@ void ScraperService::handleEvent(const QByteArray &line) {
     qInfo() << "[ScraperService] Scrape result for order" << orderId << "->"
             << result.status;
     emit scraperFinished(orderId, result);
+    emit scraperFinishedForUi(orderId, scraperResultToVariantMap(result));
     return;
   }
 

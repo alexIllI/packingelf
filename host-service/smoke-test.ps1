@@ -79,6 +79,7 @@ try {
         invoice_number       = "INV-" + (Get-Date -Format "HHmmss")
         order_date           = (Get-Date).ToString("yyyy-MM-dd")
         buyer_name           = "Smoke Test Buyer"
+        total_amount         = 7720
         order_status         = "success"
         using_coupon         = $true
         created_by_client_id = $clientId

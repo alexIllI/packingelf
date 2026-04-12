@@ -33,6 +33,7 @@ QVariant OrdersViewModel::data(const QModelIndex& index, int role) const
     case InvoiceNumberRole: return order.invoiceNumber;
     case OrderDateRole:     return order.orderDate;
     case BuyerNameRole:     return order.buyerName;
+    case TotalAmountRole:   return order.totalAmount;
     case StatusRole:        return order.orderStatus;
     case UsingCouponRole:   return order.usingCoupon ? QStringLiteral("yes") : QStringLiteral("no");
     case CreatedByRole:     return order.createdByClientId;
@@ -51,6 +52,7 @@ QHash<int, QByteArray> OrdersViewModel::roleNames() const
         { InvoiceNumberRole, "invoiceNumber" },
         { OrderDateRole,     "date" },
         { BuyerNameRole,     "accountName" },
+        { TotalAmountRole,   "totalAmount" },
         { StatusRole,        "status" },
         { UsingCouponRole,   "usingCoupon" },
         { CreatedByRole,     "createdBy" },
@@ -102,6 +104,7 @@ QVariantMap OrdersViewModel::orderDetailsByOrderNumber(const QString& orderNumbe
     details.insert(QStringLiteral("invoiceNumber"), order->invoiceNumber);
     details.insert(QStringLiteral("orderDate"), order->orderDate);
     details.insert(QStringLiteral("buyerName"), order->buyerName);
+    details.insert(QStringLiteral("totalAmount"), order->totalAmount);
     details.insert(QStringLiteral("status"), order->orderStatus);
     details.insert(QStringLiteral("usingCoupon"), order->usingCoupon);
     details.insert(QStringLiteral("createdAt"), order->createdAt);
@@ -206,6 +209,7 @@ void OrdersViewModel::handleScraperFinished(const QString& submissionId, const S
     order.invoiceNumber = submission->invoiceNumber;
     order.orderDate = result.orderDate;
     order.buyerName = result.buyerName;
+    order.totalAmount = result.totalAmount;
     order.orderStatus = *normalizedStatus;
     order.usingCoupon = result.usingCoupon;
     order.createdByClientId = config.clientId;

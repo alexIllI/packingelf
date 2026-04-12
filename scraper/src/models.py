@@ -40,6 +40,7 @@ class ScrapeResult:
     status: ScraperStatus
     buyer_name: Optional[str] = None
     order_date: Optional[str] = None
+    total_amount: Optional[int] = None
     using_coupon: bool = False
     message: Optional[str] = None
 
@@ -52,6 +53,8 @@ class ScrapeResult:
             payload["buyer_name"] = self.buyer_name
         if self.order_date is not None:
             payload["order_date"] = self.order_date
+        if self.total_amount is not None:
+            payload["total_amount"] = self.total_amount
         if self.message:
             payload["message"] = self.message
         return payload
