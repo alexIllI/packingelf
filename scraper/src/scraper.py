@@ -30,7 +30,13 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeout,
 )
 
-from .models import ScraperStatus, ScrapeResult
+try:
+    from .models import ScraperStatus, ScrapeResult
+except ImportError:
+    try:
+        from src.models import ScraperStatus, ScrapeResult
+    except ImportError:
+        from models import ScraperStatus, ScrapeResult
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
