@@ -49,11 +49,30 @@ import argparse
 import asyncio
 import json
 import os
+from pathlib import Path
 import sys
 
-from .models  import ScraperStatus, ScrapeResult
-from .account_store import AccountStore
-from .scraper import MyAcgScraper
+if __package__:
+    from .models import ScraperStatus, ScrapeResult
+    from .account_store import AccountStore
+    from .scraper import MyAcgScraper
+else:
+    package_root = Path(__file__).resolve().parent.parent
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+
+    try:
+        from src.models import ScraperStatus, ScrapeResult
+        from src.account_store import AccountStore
+        from src.scraper import MyAcgScraper
+    except ImportError:
+        source_root = Path(__file__).resolve().parent
+        if str(source_root) not in sys.path:
+            sys.path.insert(0, str(source_root))
+
+        from models import ScraperStatus, ScrapeResult
+        from account_store import AccountStore
+        from scraper import MyAcgScraper
 
 
 # ─── Stdout helpers ───────────────────────────────────────────────────────────

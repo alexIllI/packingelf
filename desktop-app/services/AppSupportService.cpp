@@ -52,18 +52,18 @@ void AppSupportService::testLocalDatabase()
     QString statusText;
 
     if (!m_database) {
-        statusText = QStringLiteral("找不到本機資料庫物件");
+        statusText = QStringLiteral("找不到資料庫服務。");
     } else if (!m_database->db().isOpen()) {
-        statusText = QStringLiteral("本機資料庫尚未開啟");
+        statusText = QStringLiteral("本機資料庫尚未開啟。");
     } else {
         QSqlQuery query(m_database->db());
         ok = query.exec(QStringLiteral("SELECT 1")) && query.next();
         if (ok) {
-            statusText = QStringLiteral("本機資料庫連線正常");
+            statusText = QStringLiteral("本機資料庫連線正常。");
         } else {
             statusText = query.lastError().text();
             if (statusText.isEmpty())
-                statusText = QStringLiteral("本機資料庫檢查失敗");
+                statusText = QStringLiteral("本機資料庫測試失敗。");
         }
     }
 
