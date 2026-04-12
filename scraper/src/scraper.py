@@ -412,27 +412,65 @@ class MyAcgScraper:
             log(f"    Warning - order date not found: {e}")
 
         # ── 7. Extract buyer name ─────────────────────────────────
-        # Real element:
-        #   <span style="max-width:100px;...">買家: phiip4607</span>
-        # XPath: find first span whose text contains '買家:'
+        # Resolve the order card first, then read buyer text within that card.
+        # This is much more stable than relying on a global span lookup.
         log("  Step 7/9 - Extracting buyer name...")
         buyer_name: Optional[str] = None
         try:
-            buyer_el = self._page.locator(
-                'xpath=//span[contains(text(),"買家:")]'
-            ).first
-            buyer_text = await buyer_el.inner_text(timeout=TIMEOUT_SHORT)
-            buyer_name = buyer_text.replace("買家:", "").strip()
-            log(f"    Buyer name: {buyer_name}")
+            buyer_text = await self._page.evaluate(
+                """
+                (orderNumber) => {
+                    const cards = Array.from(document.querySelectorAll(".mem_page_border"));
+                    const card = cards.find((node) =>
+                        (node.innerText || "").includes(orderNumber)
+                    );
+                    if (!card) {
+                        return null;
+                    }
+
+                    const candidates = Array.from(card.querySelectorAll("span, a, th, td, div"));
+                    for (const node of candidates) {
+                        const text = (node.innerText || "").trim();
+                        const match = text.match(/買家:\\s*(.+)$/m);
+                        if (match && match[1]) {
+                            return match[1].trim();
+                        }
+                    }
+                    return null;
+                }
+                """,
+                order_number,
+            )
+            if buyer_text:
+                buyer_name = str(buyer_text).strip()
+                log(f"    Buyer name: {buyer_name}")
+            else:
+                log("    Warning - buyer name not found in order card.")
         except Exception as e:
             log(f"    Warning - buyer name not found: {e}")
 
         log("  Step 7.2/9 - Extracting total amount...")
         total_amount: Optional[int] = None
         try:
-            amount_el = self._page.locator('td[rowspan="10"] span.t_red.t_bold.t_17').first
-            amount_text = await amount_el.inner_text(timeout=TIMEOUT_SHORT)
-            digits = re.sub(r"[^\d]", "", amount_text)
+            amount_text = await self._page.evaluate(
+                """
+                (orderNumber) => {
+                    const cards = Array.from(document.querySelectorAll(".mem_page_border"));
+                    const card = cards.find((node) =>
+                        (node.innerText || "").includes(orderNumber)
+                    );
+                    if (!card) {
+                        return null;
+                    }
+
+                    const amountNode = Array.from(card.querySelectorAll("span.t_red.t_bold.t_17"))
+                        .find((node) => /\\d+\\s*元/.test((node.innerText || "").trim()));
+                    return amountNode ? (amountNode.innerText || "").trim() : null;
+                }
+                """,
+                order_number,
+            )
+            digits = re.sub(r"[^\d]", "", amount_text or "")
             if digits:
                 total_amount = int(digits)
                 log(f"    Total amount: {total_amount}")
@@ -453,10 +491,19 @@ class MyAcgScraper:
         # what the old Selenium execute_script("arguments[0].click()", el) did.
         log("  Step 7.5/9 - Checking if order is already picked up...")
         try:
-            picked_up = self._page.locator(
-                'xpath=//div[contains(normalize-space(.), "已取貨")]'
-            ).first
-            if await picked_up.is_visible(timeout=TIMEOUT_SHORT):
+            picked_up = await self._page.evaluate("""
+                () => {
+                    const candidates = Array.from(document.querySelectorAll("div"));
+                    return candidates.some((node) => {
+                        const lines = (node.innerText || "")
+                            .split(/\\r?\\n/)
+                            .map((line) => line.trim())
+                            .filter(Boolean);
+                        return lines.includes("已取貨");
+                    });
+                }
+            """)
+            if picked_up:
                 log("    -> Order already picked up. Skipping print flow.")
                 return ScrapeResult(
                     status=ScraperStatus.ALREADY_PICKED_UP,
@@ -492,13 +539,13 @@ class MyAcgScraper:
             """)
             if clicked is False:
                 log("    WARNING: checkbox element not found in DOM via JS.")
-            return ScrapeResult(
-                ScraperStatus.CHECKBOX_NOT_FOUND,
-                buyer_name=buyer_name, order_date=order_date,
-                total_amount=total_amount,
-                using_coupon=using_coupon,
-                message=f"document.getElementById('oid_check_{numeric_id}') returned null",
-            )
+                return ScrapeResult(
+                    ScraperStatus.CHECKBOX_NOT_FOUND,
+                    buyer_name=buyer_name, order_date=order_date,
+                    total_amount=total_amount,
+                    using_coupon=using_coupon,
+                    message=f"document.getElementById('oid_check_{numeric_id}') returned null",
+                )
             log(f"    Checkbox clicked via JS. Checked state: {clicked}")
         except Exception as e:
             return ScrapeResult(

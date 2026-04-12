@@ -109,7 +109,7 @@ ContentPage {
         preparedInvoiceNumber = "";
         orderNumberInput.text = "";
         invoiceNumberInput.text = "";
-        focusOrderEntry();
+        focusInvoiceEntry();
     }
 
     function clearPrintedSelection() {
@@ -192,8 +192,20 @@ ContentPage {
             return;
         }
 
-        preparedInvoiceNumber = "";
-        focusInvoiceEntry();
+        var invoice = normalizedInvoiceText(invoiceNumberInput.text);
+        var invoiceRx = /^[A-Z]{2}\d{8}$/;
+        if (!invoiceRx.test(invoice))
+            invoice = preparedInvoiceNumber.length > 0 ? preparedInvoiceNumber : tryExtractInvoiceNumber(invoiceNumberInput.text);
+
+        if (!invoiceRx.test(invoice)) {
+            inputError = qsTr("發票號碼格式必須為 2 個英文字母加 8 位數字，例如 AB12345678。");
+            focusInvoiceEntry();
+            return;
+        }
+
+        preparedInvoiceNumber = invoice;
+        invoiceNumberInput.text = invoice;
+        submitPrintJob();
     }
 
     function submitPrintJob() {
@@ -266,6 +278,7 @@ ContentPage {
 
     function handleInvoiceEnter() {
         inputError = "";
+        lastResult = "";
 
         var extracted = tryExtractInvoiceNumber(invoiceNumberInput.text);
         if (extracted.length === 0) {
@@ -275,15 +288,10 @@ ContentPage {
             return;
         }
 
-        if (preparedInvoiceNumber === extracted && normalizedInvoiceText(invoiceNumberInput.text) === extracted) {
-            submitPrintJob();
-            return;
-        }
-
         preparedInvoiceNumber = extracted;
         invoiceNumberInput.text = extracted;
-        lastResult = qsTr("已擷取發票號碼，請再按一次 Enter 送出。");
-        focusInvoiceEntry();
+        lastResult = qsTr("已擷取發票號碼，請輸入貨單尾碼。");
+        focusOrderEntry();
     }
 
     function presentScrapeOutcome(result) {
@@ -560,6 +568,20 @@ ContentPage {
 
                         Text {
                             color: Theme.header3Color
+                            text: qsTr("發票號碼：")
+                            font.pixelSize: Constants.header3FontSize
+                            Layout.leftMargin: 24
+                        }
+
+                        CustomEntry {
+                            id: invoiceNumberInput
+                            placeholderText: qsTr("請輸入發票號碼")
+                            Layout.fillWidth: true
+                            onAccepted: printingView.handleInvoiceEnter()
+                        }
+
+                        Text {
+                            color: Theme.header3Color
                             text: qsTr("貨單尾碼：")
                             font.pixelSize: Constants.header3FontSize
                             Layout.leftMargin: 24
@@ -571,20 +593,6 @@ ContentPage {
                             maximumLength: 5
                             Layout.fillWidth: true
                             onAccepted: printingView.handleOrderNumberEnter()
-                        }
-
-                        Text {
-                            color: Theme.header3Color
-                            text: qsTr("發票號碼：")
-                            font.pixelSize: Constants.header3FontSize
-                            Layout.leftMargin: 24
-                        }
-
-                        CustomEntry {
-                            id: invoiceNumberInput
-                            placeholderText: qsTr("請輸入發票號碼")
-                            Layout.fillWidth: true
-                            onAccepted: printingView.handleInvoiceEnter()
                         }
 
                         CustomButton {
