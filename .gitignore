@@ -4,6 +4,9 @@ host-service/target/
 host-service/build-output/
 host-data/
 host-service/host-data/
+dist/
+installers/ifw/packages/com.meridian.packingelf.client/data/
+installers/ifw/packages/com.meridian.packingelf.host/data/
 .tools/
 .worktrees/
 desktop-app/.qmlls.ini
@@ -31,3 +34,5 @@ scraper/**/*.pyo
 scraper/dist/           # PyInstaller output (scraper.exe)
 scraper/build/          # PyInstaller build temp
 scraper/*.spec          # PyInstaller spec files (auto-generated)
+/scraper/build/
+/scraper/*.spec

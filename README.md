@@ -39,3 +39,29 @@ cmake --build --preset msvc-release
 cmake --preset msvc-debug -DPACKINGELF_CXX_STANDARD=17
 cmake --build --preset msvc-debug
 ```
+
+# Build portable packages / installer
+
+```powershell
+# Build portable client + host folders under dist/portable
+.\scripts\build-installer.ps1 -PortableOnly
+
+# Build the final Windows installer
+# Preferred: Inno Setup if ISCC.exe is installed
+.\scripts\build-installer.ps1
+
+# Optional: force Qt Installer Framework if binarycreator.exe is installed
+.\scripts\build-installer.ps1 -PreferIfw
+```
+
+Installer output:
+
+```text
+dist/PackingElf-Setup-1.0.0.exe
+```
+
+Recommended distribution:
+
+- Upload the installer `.exe` to GitHub Releases
+- Give office users the GitHub Releases download link
+- They only need to download and run the installer, not Git or any dev tools
