@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Installer>
-    <Name>PackingElf Suite</Name>
+    <Name>包貨小精靈</Name>
     <Version>1.0.0</Version>
-    <Title>PackingElf Installer</Title>
+    <Title>包貨小精靈 安裝程式</Title>
     <Publisher>Meridian</Publisher>
-    <StartMenuDir>PackingElf</StartMenuDir>
+    <StartMenuDir>包貨小精靈</StartMenuDir>
     <TargetDir>@ApplicationsDir@/Meridian</TargetDir>
     <ControlScript>../scripts/scripts.qs</ControlScript>
 </Installer>
