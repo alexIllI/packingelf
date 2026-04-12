@@ -164,6 +164,7 @@ void SyncService::applyRemoteChanges(const QJsonArray& changes)
             order.invoiceNumber = payload.value(QStringLiteral("invoice_number")).toString();
             order.orderDate = payload.value(QStringLiteral("order_date")).toString();
             order.buyerName = payload.value(QStringLiteral("buyer_name")).toString();
+            order.totalAmount = payload.value(QStringLiteral("total_amount")).toInteger(0);
             order.orderStatus = payload.value(QStringLiteral("order_status")).toString();
             order.usingCoupon = payload.value(QStringLiteral("using_coupon")).toBool(false);
             order.createdByClientId = payload.value(QStringLiteral("created_by_client_id")).toString();

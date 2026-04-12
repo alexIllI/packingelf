@@ -18,6 +18,7 @@ Manual-login mode (--manual-login flag):
 from __future__ import annotations
 
 import asyncio
+import re
 import sys
 from typing import Optional
 
@@ -420,6 +421,20 @@ class MyAcgScraper:
         except Exception as e:
             log(f"    Warning - buyer name not found: {e}")
 
+        log("  Step 7.2/9 - Extracting total amount...")
+        total_amount: Optional[int] = None
+        try:
+            amount_el = self._page.locator('td[rowspan="10"] span.t_red.t_bold.t_17').first
+            amount_text = await amount_el.inner_text(timeout=TIMEOUT_SHORT)
+            digits = re.sub(r"[^\d]", "", amount_text)
+            if digits:
+                total_amount = int(digits)
+                log(f"    Total amount: {total_amount}")
+            else:
+                log(f"    Warning - amount text did not contain digits: {amount_text}")
+        except Exception as e:
+            log(f"    Warning - total amount not found: {e}")
+
         # ── 8. Click order checkbox ───────────────────────────────
         # Real element: magic-checkbox pattern
         #   <input class="magic-checkbox" type="checkbox" id="oid_check_2784862" ...>
@@ -441,6 +456,7 @@ class MyAcgScraper:
                     status=ScraperStatus.ALREADY_PICKED_UP,
                     buyer_name=buyer_name,
                     order_date=order_date,
+                    total_amount=total_amount,
                     using_coupon=using_coupon,
                     message="Order already picked up; print skipped.",
                 )
@@ -453,6 +469,7 @@ class MyAcgScraper:
                 status=final_status,
                 buyer_name=buyer_name,
                 order_date=order_date,
+                total_amount=total_amount,
                 using_coupon=using_coupon,
             )
 
@@ -469,17 +486,19 @@ class MyAcgScraper:
             """)
             if clicked is False:
                 log("    WARNING: checkbox element not found in DOM via JS.")
-                return ScrapeResult(
-                    ScraperStatus.CHECKBOX_NOT_FOUND,
-                    buyer_name=buyer_name, order_date=order_date,
-                    using_coupon=using_coupon,
-                    message=f"document.getElementById('oid_check_{numeric_id}') returned null",
-                )
+            return ScrapeResult(
+                ScraperStatus.CHECKBOX_NOT_FOUND,
+                buyer_name=buyer_name, order_date=order_date,
+                total_amount=total_amount,
+                using_coupon=using_coupon,
+                message=f"document.getElementById('oid_check_{numeric_id}') returned null",
+            )
             log(f"    Checkbox clicked via JS. Checked state: {clicked}")
         except Exception as e:
             return ScrapeResult(
                 ScraperStatus.CHECKBOX_NOT_FOUND,
                 buyer_name=buyer_name, order_date=order_date,
+                total_amount=total_amount,
                 using_coupon=using_coupon,
                 message=f"JS click on oid_check_{numeric_id} failed: {e}",
             )
@@ -513,12 +532,14 @@ class MyAcgScraper:
                 return ScrapeResult(
                     ScraperStatus.STORE_CLOSED,
                     buyer_name=buyer_name, order_date=order_date,
+                    total_amount=total_amount,
                     using_coupon=using_coupon,
                     message=f"Dialog intercepted print: {self._last_dialog}",
                 )
             return ScrapeResult(
                 ScraperStatus.PRINT_ERROR,
                 buyer_name=buyer_name, order_date=order_date,
+                total_amount=total_amount,
                 using_coupon=using_coupon,
                 message=f"Print tab did not open: {e}",
             )
@@ -551,5 +572,6 @@ class MyAcgScraper:
             status=ScraperStatus.SUCCESS,
             buyer_name=buyer_name,
             order_date=order_date,
+            total_amount=total_amount,
             using_coupon=using_coupon,
         )

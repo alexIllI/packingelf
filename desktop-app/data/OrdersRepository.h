@@ -12,6 +12,7 @@ struct Order {
     QString invoiceNumber;
     QString orderDate;
     QString buyerName;
+    qint64 totalAmount = 0;
     QString orderStatus;
     bool usingCoupon = false;
     QString createdByClientId;

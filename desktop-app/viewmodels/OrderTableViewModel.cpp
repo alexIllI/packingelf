@@ -61,6 +61,7 @@ QVariant OrderTableViewModel::data(const QModelIndex& index, int role) const
     case InvoiceNumberRole: return order.invoiceNumber;
     case OrderDateRole:     return order.orderDate;
     case BuyerNameRole:     return order.buyerName;
+    case TotalAmountRole:   return order.totalAmount;
     case StatusRole:
         if (normalizedStatus(order.orderStatus) == QStringLiteral("success"))
             return QStringLiteral("成功");
@@ -86,6 +87,7 @@ QHash<int, QByteArray> OrderTableViewModel::roleNames() const
         { InvoiceNumberRole, "invoiceNumber" },
         { OrderDateRole, "date" },
         { BuyerNameRole, "accountName" },
+        { TotalAmountRole, "totalAmount" },
         { StatusRole, "status" },
         { UsingCouponRole, "usingCoupon" },
         { CreatedByRole, "createdBy" },
