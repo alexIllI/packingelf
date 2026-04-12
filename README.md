@@ -46,8 +46,12 @@ cmake --build --preset msvc-debug
 # Build portable client + host folders under dist/portable
 .\scripts\build-installer.ps1 -PortableOnly
 
-# Build the final Windows installer after Qt Installer Framework is installed
+# Build the final Windows installer
+# Preferred: Inno Setup if ISCC.exe is installed
 .\scripts\build-installer.ps1
+
+# Optional: force Qt Installer Framework if binarycreator.exe is installed
+.\scripts\build-installer.ps1 -PreferIfw
 ```
 
 Installer output:
