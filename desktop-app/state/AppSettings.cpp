@@ -59,10 +59,8 @@ void AppSettings::load()
         }
     }
 
-    if (!hasMyAcgAccount(m_selectedMyAcgAccountName)) {
+    if (!hasMyAcgAccount(m_selectedMyAcgAccountName))
         m_selectedMyAcgAccountName.clear();
-        m_autoLoginEnabled = false;
-    }
 }
 
 void AppSettings::save() const
@@ -174,11 +172,8 @@ bool AppSettings::deleteMyAcgAccount(const QString& name)
     const QString removedName = m_accounts.at(existingIndex).name;
     m_accounts.removeAt(existingIndex);
 
-    if (m_selectedMyAcgAccountName == removedName) {
+    if (m_selectedMyAcgAccountName == removedName)
         m_selectedMyAcgAccountName = m_accounts.isEmpty() ? QString() : m_accounts.first().name;
-        if (m_accounts.isEmpty())
-            m_autoLoginEnabled = false;
-    }
 
     save();
     emit myAcgAccountsChanged();
@@ -204,11 +199,10 @@ void AppSettings::setAutoLoginEnabled(bool enabled)
     if (enabled && m_selectedMyAcgAccountName.isEmpty() && !m_accounts.isEmpty())
         m_selectedMyAcgAccountName = m_accounts.first().name;
 
-    const bool nextValue = enabled && !m_selectedMyAcgAccountName.isEmpty();
-    if (m_autoLoginEnabled == nextValue)
+    if (m_autoLoginEnabled == enabled)
         return;
 
-    m_autoLoginEnabled = nextValue;
+    m_autoLoginEnabled = enabled;
     save();
     emit autoLoginSettingsChanged();
 }
@@ -221,9 +215,6 @@ void AppSettings::setSelectedMyAcgAccountName(const QString& name)
         return;
 
     m_selectedMyAcgAccountName = sanitizedName;
-    if (m_selectedMyAcgAccountName.isEmpty())
-        m_autoLoginEnabled = false;
-
     save();
     emit autoLoginSettingsChanged();
 }
