@@ -77,6 +77,24 @@ RowLayout {
         Item {
             Layout.fillHeight: true
         }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.bottomMargin: 8
+            radius: 10
+            color: Qt.rgba(1, 1, 1, 0.04)
+            border.color: Qt.rgba(1, 1, 1, 0.10)
+            implicitHeight: 28
+
+            Text {
+                anchors.centerIn: parent
+                text: "v" + Qt.application.version
+                color: Theme.dimTextColor
+                font.pixelSize: 12
+            }
+        }
     }
 
     StackLayout {
@@ -88,8 +106,8 @@ RowLayout {
 
         property var routes: ["Home", "Printing", "History", "Settings", "Profile"]
         currentIndex: {
-            const i = routes.indexOf(NavStore.route);
-            return i >= 0 ? i : 0;
+            const i = routes.indexOf(NavStore.route)
+            return i >= 0 ? i : 0
         }
 
         Loader {

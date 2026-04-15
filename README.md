@@ -1,3 +1,8 @@
+# 文件
+
+- [安裝說明](docs/INSTALLATION.md)
+- [測試說明](docs/TESTING.md)
+
 # List available presets
 
 ```bash

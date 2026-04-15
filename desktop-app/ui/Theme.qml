@@ -26,4 +26,5 @@ QtObject {
     readonly property color header2Color: "#ffffff"
     readonly property color header3Color: "#ffffff"
     readonly property color headerSubColor: "#dfdfdf"
+    readonly property color dimTextCol: "#b8b8b8"
 }

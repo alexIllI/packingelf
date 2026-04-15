@@ -14,7 +14,7 @@ ContentPage {
     readonly property int maxPrefix: 997
     readonly property int savedPrefix: AppSettings ? AppSettings.orderPrefix : defaultPrefix
     readonly property bool hasUnsavedPrefixChanges: prefixSpinBox.value !== savedPrefix
-    readonly property var tabLabels: [qsTr("貨單前綴"), qsTr("myacg 帳號")]
+    readonly property var tabLabels: [qsTr("貨單前綴"), qsTr("myacg 帳號"), qsTr("Host 連線")]
     readonly property bool autoLoginSelected: AppSettings ? AppSettings.autoLoginEnabled : false
 
     property int currentTabIndex: 0
@@ -25,6 +25,14 @@ ContentPage {
     property string editingPassword: ""
     property string accountNotice: ""
     property string pendingLoginTestName: ""
+    property string editingHostUrl: ""
+    property string editingPairingToken: ""
+    property bool pendingHostConnectionTest: false
+
+    readonly property string savedHostUrl: SyncSvc ? SyncSvc.hostBaseUrl : ""
+    readonly property string savedPairingToken: SyncSvc ? SyncSvc.pairingToken : ""
+    readonly property bool hasUnsavedHostConnectionChanges: editingHostUrl.trim() !== savedHostUrl.trim()
+                                                           || editingPairingToken.trim() !== savedPairingToken.trim()
 
     function formatPrefix(prefix) { return Number(prefix).toString().padStart(3, "0"); }
     function previewPrefixAt(offset) { return formatPrefix(prefixSpinBox.value + offset); }
@@ -98,6 +106,29 @@ ContentPage {
         }
         return true;
     }
+    function resetHostConnectionForm() {
+        editingHostUrl = savedHostUrl;
+        editingPairingToken = savedPairingToken;
+    }
+    function saveHostConnectionSettings() {
+        if (editingHostUrl.trim().length === 0) {
+            AppDialog.showError(qsTr("Host 設定不完整"), qsTr("請輸入 Host URL。"));
+            return;
+        }
+        if (editingPairingToken.trim().length === 0) {
+            AppDialog.showError(qsTr("Host 設定不完整"), qsTr("請輸入 Pairing Token。"));
+            return;
+        }
+
+        pendingHostConnectionTest = true;
+        if (!SyncSvc.saveConnectionSettings(editingHostUrl, editingPairingToken, true)) {
+            pendingHostConnectionTest = false;
+            AppDialog.showError(qsTr("儲存失敗"), qsTr("無法儲存 Host 連線設定。"));
+            return;
+        }
+
+        resetHostConnectionForm();
+    }
     function saveMyAcgAccount() {
         if (!validateAccountForm())
             return;
@@ -164,6 +195,7 @@ ContentPage {
 
     Component.onCompleted: {
         prefixSpinBox.value = savedPrefix;
+        resetHostConnectionForm();
         var names = accountNames();
         if (names.length > 0)
             selectStoredAccount(AppSettings.selectedMyAcgAccountName || names[0]);
@@ -194,6 +226,31 @@ ContentPage {
 
         function onAutoLoginSettingsChanged() {
             settingView.syncAutoLoginDropdown();
+        }
+    }
+
+    Connections {
+        target: SyncSvc
+
+        function onStatusChanged() {
+            if (!settingView.hasUnsavedHostConnectionChanges)
+                settingView.resetHostConnectionForm();
+        }
+
+        function onConnectionTestFinished(ok, message) {
+            if (!settingView.pendingHostConnectionTest)
+                return;
+
+            settingView.pendingHostConnectionTest = false;
+            if (ok) {
+                AppDialog.showSuccess(
+                            qsTr("Host 連線成功"),
+                            message && message.length > 0 ? message : qsTr("已成功連上 Host。"));
+            } else {
+                AppDialog.showError(
+                            qsTr("Host 連線失敗"),
+                            message && message.length > 0 ? message : qsTr("目前無法連上 Host。"));
+            }
         }
     }
 
@@ -232,7 +289,7 @@ ContentPage {
 
             Rectangle {
                 anchors.centerIn: parent
-                width: 360
+                width: 540
                 height: 56
                 radius: 20
                 color: Theme.sidebarColor
@@ -250,7 +307,8 @@ ContentPage {
                             required property int index
                             required property string modelData
 
-                            width: (parent.width - 6) / 2
+                            width: (parent.width - ((settingView.tabLabels.length - 1) * parent.spacing))
+                                   / settingView.tabLabels.length
                             height: parent.height
                             radius: 15
                             color: settingView.currentTabIndex === index
@@ -535,6 +593,146 @@ ContentPage {
                         id: accountContent
                         width: parent.width
                         spacing: 16
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            visible: false
+                            enabled: false
+                            implicitHeight: visible ? hostConnectionCardContent.implicitHeight + 44 : 0
+                            radius: 20
+                            color: Theme.sidebarColor
+                            border.color: Theme.borderColor
+
+                            ColumnLayout {
+                                id: hostConnectionCardContent
+                                anchors.fill: parent
+                                anchors.margins: 22
+                                spacing: 16
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Text {
+                                            text: qsTr("Host 連線設定")
+                                            color: Theme.header2Color
+                                            font.pixelSize: Constants.header2FontSize
+                                            font.bold: true
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            wrapMode: Text.WordWrap
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            text: qsTr("設定目前 client 要連到哪一台 Host，以及使用哪組 Pairing Token。儲存後會立即套用並測試連線。")
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        radius: 13
+                                        color: settingView.hasUnsavedHostConnectionChanges
+                                               ? Qt.rgba(Theme.warningColor.r, Theme.warningColor.g, Theme.warningColor.b, 0.14)
+                                               : Qt.rgba(Theme.goodColor.r, Theme.goodColor.g, Theme.goodColor.b, 0.14)
+                                        border.color: settingView.hasUnsavedHostConnectionChanges ? Theme.warningColor : Theme.goodColor
+                                        Layout.preferredWidth: 108
+                                        Layout.preferredHeight: 32
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: settingView.hasUnsavedHostConnectionChanges ? qsTr("尚未儲存") : qsTr("已套用")
+                                            color: Theme.header1Color
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: width >= 720 ? 2 : 1
+                                    columnSpacing: 14
+                                    rowSpacing: 14
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("Host URL")
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+
+                                        CustomEntry {
+                                            Layout.fillWidth: true
+                                            text: settingView.editingHostUrl
+                                            placeholderText: qsTr("例如：http://192.168.68.130:48080")
+                                            onTextChanged: settingView.editingHostUrl = text
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("Pairing Token")
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+
+                                        CustomEntry {
+                                            Layout.fillWidth: true
+                                            text: settingView.editingPairingToken
+                                            placeholderText: qsTr("請輸入 Host 顯示的配對碼")
+                                            onTextChanged: settingView.editingPairingToken = text
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    radius: 16
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: hostHelpText.implicitHeight + 24
+
+                                    Text {
+                                        id: hostHelpText
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("目前使用中的 Host：%1").arg(settingView.savedHostUrl.length > 0 ? settingView.savedHostUrl : qsTr("尚未設定"))
+                                        color: Theme.headerSubColor
+                                        font.pixelSize: 12
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    Item { Layout.fillWidth: true }
+
+                                    CustomButton {
+                                        text: qsTr("重設")
+                                        enabled: settingView.hasUnsavedHostConnectionChanges
+                                        onClicked: settingView.resetHostConnectionForm()
+                                    }
+
+                                    CustomButton {
+                                        text: qsTr("儲存並測試")
+                                        highlighted: true
+                                        onClicked: settingView.saveHostConnectionSettings()
+                                    }
+                                }
+                            }
+                        }
 
                         Rectangle {
                             Layout.fillWidth: true
@@ -954,6 +1152,162 @@ ContentPage {
                                             enabled: settingView.autoLoginSelected && settingView.editingAccountName.trim().length > 0
                                             onClicked: settingView.saveMyAcgAccount()
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Flickable {
+                    anchors.fill: parent
+                    contentWidth: width
+                    contentHeight: hostConnectionContent.implicitHeight
+                    clip: true
+
+                    ColumnLayout {
+                        id: hostConnectionContent
+                        width: parent.width
+                        spacing: 16
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: hostConnectionStandaloneCardContent.implicitHeight + 44
+                            radius: 20
+                            color: Theme.sidebarColor
+                            border.color: Theme.borderColor
+
+                            ColumnLayout {
+                                id: hostConnectionStandaloneCardContent
+                                anchors.fill: parent
+                                anchors.margins: 22
+                                spacing: 16
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Text {
+                                            text: qsTr("Host 連線設定")
+                                            color: Theme.header2Color
+                                            font.pixelSize: Constants.header2FontSize
+                                            font.bold: true
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            wrapMode: Text.WordWrap
+                                            color: Theme.headerSubColor
+                                            font.pixelSize: Constants.header3FontSize
+                                            text: qsTr("設定目前 client 要連到哪一台 Host，以及使用哪組 Pairing Token。儲存後會立即套用並測試連線。")
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        radius: 13
+                                        color: settingView.hasUnsavedHostConnectionChanges
+                                               ? Qt.rgba(Theme.warningColor.r, Theme.warningColor.g, Theme.warningColor.b, 0.14)
+                                               : Qt.rgba(Theme.goodColor.r, Theme.goodColor.g, Theme.goodColor.b, 0.14)
+                                        border.color: settingView.hasUnsavedHostConnectionChanges ? Theme.warningColor : Theme.goodColor
+                                        Layout.preferredWidth: 108
+                                        Layout.preferredHeight: 32
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: settingView.hasUnsavedHostConnectionChanges ? qsTr("尚未儲存") : qsTr("已套用")
+                                            color: Theme.header1Color
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: width >= 720 ? 2 : 1
+                                    columnSpacing: 14
+                                    rowSpacing: 14
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("Host URL")
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+
+                                        CustomEntry {
+                                            Layout.fillWidth: true
+                                            text: settingView.editingHostUrl
+                                            placeholderText: qsTr("例如：http://192.168.68.130:48080")
+                                            onTextChanged: settingView.editingHostUrl = text
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Text {
+                                            text: qsTr("Pairing Token")
+                                            color: Theme.header3Color
+                                            font.pixelSize: Constants.header3FontSize
+                                        }
+
+                                        CustomEntry {
+                                            Layout.fillWidth: true
+                                            text: settingView.editingPairingToken
+                                            placeholderText: qsTr("請輸入由 Host 顯示的配對碼")
+                                            onTextChanged: settingView.editingPairingToken = text
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    radius: 16
+                                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.08)
+                                    border.color: Theme.borderColor
+                                    implicitHeight: hostHelpTextStandalone.implicitHeight + 24
+
+                                    Text {
+                                        id: hostHelpTextStandalone
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("目前儲存的 Host：%1").arg(settingView.savedHostUrl.length > 0 ? settingView.savedHostUrl : qsTr("尚未設定"))
+                                        color: Theme.headerSubColor
+                                        font.pixelSize: 12
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    Item { Layout.fillWidth: true }
+
+                                    CustomButton {
+                                        text: qsTr("重設")
+                                        enabled: settingView.hasUnsavedHostConnectionChanges
+                                        onClicked: settingView.resetHostConnectionForm()
+                                    }
+
+                                    CustomButton {
+                                        text: qsTr("儲存並測試")
+                                        highlighted: true
+                                        onClicked: settingView.saveHostConnectionSettings()
                                     }
                                 }
                             }

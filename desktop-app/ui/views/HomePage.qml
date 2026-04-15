@@ -65,9 +65,9 @@ ContentPage {
 
     function syncSummaryText() {
         if (homeView.pendingSyncCount > 0)
-            return qsTr("還有 %1 筆變更待同步到主機。").arg(homeView.pendingSyncCount);
+            return qsTr("還有 %1 筆變更待同步到主機資料庫。").arg(homeView.pendingSyncCount);
         if (!homeView.hostDbOnline)
-            return qsTr("主機目前未連線，本機資料仍可使用，稍後會自動重試同步。");
+            return qsTr("主機資料庫目前未連線，本機資料仍可使用，稍後會自動重試同步。");
         return qsTr("目前沒有待同步資料。");
     }
 
@@ -87,7 +87,7 @@ ContentPage {
         if (homeView.hostDbOnline && homeView.localDbOnline && ScraperSvc.browserState === 2)
             return qsTr("本機與同步服務皆正常，可以直接開始作業。");
         if (!homeView.hostDbOnline)
-            return qsTr("主機離線中，系統會先保留本機作業結果並稍後重試同步。");
+            return qsTr("主機資料庫離線中，系統會先保留本機作業結果並稍後重試同步。");
         if (!homeView.localDbOnline)
             return qsTr("本機資料庫需要檢查，建議先測試資料庫連線。");
         return qsTr("自動化網頁尚未就緒，請先確認登入或重新啟動自動化網頁。");
@@ -129,7 +129,7 @@ ContentPage {
                     return;
 
                 homeView.waitingForConnectionTest = false;
-                homeView.showOperationResult(ok, qsTr("主機連線測試"), message && message.length > 0 ? message : (ok ? qsTr("主機連線正常。") : qsTr("主機連線失敗。")));
+                homeView.showOperationResult(ok, qsTr("主機資料庫連線測試"), message && message.length > 0 ? message : (ok ? qsTr("主機資料庫連線正常。") : qsTr("主機資料庫連線失敗。")));
             }
 
             function onSyncCycleFinished(ok, message) {
@@ -276,7 +276,7 @@ ContentPage {
                                                 "color": homeView.browserStatusColor()
                                             },
                                             {
-                                                "title": qsTr("主機同步"),
+                                                "title": qsTr("主機資料庫同步"),
                                                 "label": homeView.hostStatusLabel(),
                                                 "color": homeView.hostDbOnline ? Theme.goodColor : Theme.errorColor
                                             },
@@ -387,7 +387,7 @@ ContentPage {
                                             Layout.fillWidth: true
                                         }
                                         Text {
-                                            text: qsTr("主機位址")
+                                            text: qsTr("主機資料庫位址")
                                             color: Theme.headerSubColor
                                             font.pixelSize: Constants.header3FontSize
                                         }
@@ -512,7 +512,7 @@ ContentPage {
                             }
 
                             CustomButton {
-                                text: qsTr("測試主機連線")
+                                text: qsTr("測試資料庫連線")
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: homeView.actionButtonHeight
                                 onClicked: {

@@ -2,10 +2,30 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDebug>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QUrlQuery>
+
+namespace {
+QString replyMessage(QNetworkReply* reply)
+{
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QString errorText = reply->errorString().trimmed();
+    const QString bodyText = QString::fromUtf8(reply->readAll()).trimmed();
+
+    if (statusCode > 0 && !bodyText.isEmpty())
+        return QStringLiteral("HTTP %1 - %2").arg(statusCode).arg(bodyText);
+    if (statusCode > 0 && !errorText.isEmpty())
+        return QStringLiteral("HTTP %1 - %2").arg(statusCode).arg(errorText);
+    if (!bodyText.isEmpty())
+        return bodyText;
+    if (!errorText.isEmpty())
+        return errorText;
+    return QStringLiteral("Unknown network error");
+}
+}
 
 HostClient::HostClient(QObject* parent)
     : QObject(parent)
@@ -68,24 +88,31 @@ void HostClient::testConnection()
 {
     if (m_baseUrl.isEmpty()) {
         const QString message = QStringLiteral("Host URL is not configured");
+        qWarning() << "[HostClient] Connection test skipped:" << message;
         setOnline(false, message);
         emit healthCheckFinished(false, message);
         return;
     }
 
+    qInfo() << "[HostClient] Testing host connection:" << m_baseUrl;
     QNetworkReply* reply = m_network.get(makeRequest(QStringLiteral("/api/v1/health")));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            const QString message = reply->errorString();
+            const QString message = replyMessage(reply);
+            qWarning() << "[HostClient] Connection test failed:" << m_baseUrl << message;
             setOnline(false, message);
             emit healthCheckFinished(false, message);
             reply->deleteLater();
             return;
         }
 
+        const QByteArray body = reply->readAll();
+        const QJsonObject obj = QJsonDocument::fromJson(body).object();
+        const QString message = obj.value(QStringLiteral("message")).toString();
+        qInfo() << "[HostClient] Connection test succeeded:" << m_baseUrl
+                << (message.isEmpty() ? QStringLiteral("Host reachable") : message);
         setOnline(true);
-        emit healthCheckFinished(true, QString::fromUtf8(body));
+        emit healthCheckFinished(true, message.isEmpty() ? QStringLiteral("Host reachable") : message);
         reply->deleteLater();
     });
 }
@@ -108,7 +135,8 @@ void HostClient::pair()
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            const QString message = reply->errorString();
+            const QString message = replyMessage(reply);
+            qWarning() << "[HostClient] Pairing failed:" << m_baseUrl << message;
             setOnline(false, message);
             emit pairingFinished(false, 0, message);
             reply->deleteLater();
@@ -119,6 +147,7 @@ void HostClient::pair()
         const bool ok = obj.value(QStringLiteral("ok")).toBool(false);
         const QString message = obj.value(QStringLiteral("message")).toString();
         const qint64 initialRevision = obj.value(QStringLiteral("initial_revision")).toInteger(0);
+        qInfo() << "[HostClient] Pairing result:" << ok << message << "revision" << initialRevision;
         setOnline(ok, message);
         emit pairingFinished(ok, initialRevision, message);
         reply->deleteLater();
@@ -157,7 +186,8 @@ void HostClient::pushMutations(const QVector<OutboxMutation>& mutations)
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            const QString message = reply->errorString();
+            const QString message = replyMessage(reply);
+            qWarning() << "[HostClient] Push mutations failed:" << m_baseUrl << message;
             setOnline(false, message);
             emit mutationsPushed({}, 0, message);
             reply->deleteLater();
@@ -170,6 +200,8 @@ void HostClient::pushMutations(const QVector<OutboxMutation>& mutations)
             acceptedIds.append(value.toString());
         const qint64 latestRevision = obj.value(QStringLiteral("latest_revision")).toInteger(0);
         const QString message = obj.value(QStringLiteral("message")).toString();
+        qInfo() << "[HostClient] Mutations pushed:" << acceptedIds.size()
+                << "latest revision" << latestRevision << message;
         setOnline(true);
         emit mutationsPushed(acceptedIds, latestRevision, message);
         reply->deleteLater();
@@ -192,7 +224,8 @@ void HostClient::fetchChanges(qint64 sinceRevision, int limit)
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            const QString message = reply->errorString();
+            const QString message = replyMessage(reply);
+            qWarning() << "[HostClient] Fetch changes failed:" << m_baseUrl << message;
             setOnline(false, message);
             emit changesReceived({}, 0, message);
             reply->deleteLater();
@@ -203,6 +236,8 @@ void HostClient::fetchChanges(qint64 sinceRevision, int limit)
         const QJsonArray changes = obj.value(QStringLiteral("changes")).toArray();
         const qint64 latestRevision = obj.value(QStringLiteral("latest_revision")).toInteger(0);
         const QString message = obj.value(QStringLiteral("message")).toString();
+        qInfo() << "[HostClient] Changes received:" << changes.size()
+                << "latest revision" << latestRevision << message;
         setOnline(true);
         emit changesReceived(changes, latestRevision, message);
         reply->deleteLater();

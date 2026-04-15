@@ -195,7 +195,7 @@ public class HostApplication extends Application {
             ClipboardContent content = new ClipboardContent();
             content.putString(baseUrlValue.getText());
             Clipboard.getSystemClipboard().setContent(content);
-            showInfo("已複製", "主機網址已複製到剪貼簿。");
+            showInfo("已複製", "主機資料庫網址已複製到剪貼簿。");
         });
         openDataFolderButton.setOnAction(event -> openPath(runtime.dataDirectoryPath()));
         openExportFolderButton.setOnAction(event -> openPath(runtime.exportDirectoryPath()));

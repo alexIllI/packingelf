@@ -53,12 +53,26 @@ QString buildLine(QtMsgType type,
     return line;
 }
 
-void writeLine(const QString& line)
+void writeConsoleLine(const QString& line)
 {
     const QByteArray utf8 = line.toUtf8();
     std::fwrite(utf8.constData(), 1, static_cast<size_t>(utf8.size()), stderr);
     std::fwrite("\n", 1, 1, stderr);
     std::fflush(stderr);
+}
+
+bool shouldWriteToFile(QtMsgType type, const QString& message)
+{
+    if (type == QtWarningMsg || type == QtCriticalMsg || type == QtFatalMsg)
+        return true;
+
+    return message.startsWith(QStringLiteral("Logging started at"))
+        || message.startsWith(QStringLiteral("Failed to open log file:"));
+}
+
+void writeFileLine(const QString& line)
+{
+    const QByteArray utf8 = line.toUtf8();
 
     QMutexLocker locker(&g_logMutex);
     if (!g_logFile || !g_logFile->isOpen())
@@ -73,7 +87,10 @@ void appMessageHandler(QtMsgType type,
                        const QMessageLogContext& context,
                        const QString& message)
 {
-    writeLine(buildLine(type, context, message));
+    const QString line = buildLine(type, context, message);
+    writeConsoleLine(line);
+    if (shouldWriteToFile(type, message))
+        writeFileLine(line);
 
     if (type == QtFatalMsg)
         std::abort();
@@ -100,18 +117,20 @@ void AppLog::install()
         qInstallMessageHandler(appMessageHandler);
         g_installed = true;
         locker.unlock();
-        writeLine(QStringLiteral("%1 [INFO] Logging started at %2")
-                      .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
-                           g_currentLogFilePath));
+        const QString line = QStringLiteral("%1 [INFO] Logging started at %2")
+                                 .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
+                                      g_currentLogFilePath);
+        writeConsoleLine(line);
+        writeFileLine(line);
         return;
     }
 
     qInstallMessageHandler(appMessageHandler);
     g_installed = true;
     locker.unlock();
-    writeLine(QStringLiteral("%1 [WARN] Failed to open log file: %2")
-                  .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
-                       g_currentLogFilePath));
+    writeConsoleLine(QStringLiteral("%1 [WARN] Failed to open log file: %2")
+                         .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
+                              g_currentLogFilePath));
 }
 
 QString AppLog::logDirectoryPath()

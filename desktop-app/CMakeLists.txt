@@ -2,7 +2,7 @@
 #  CMake configuration for PackingElf desktop application
 #  ─────────────────────────────────────────────────────────────
 cmake_minimum_required(VERSION 3.25)
-project(PackingElf VERSION 1.0.0 LANGUAGES CXX)
+project(PackingElf VERSION 1.0.3 LANGUAGES CXX)
 
 # Allow C++ standard to be overridden via -DPACKINGELF_CXX_STANDARD=17
 if(NOT DEFINED PACKINGELF_CXX_STANDARD)
@@ -57,6 +57,7 @@ add_executable(packingelf
 )
 
 target_include_directories(packingelf PRIVATE app data services viewmodels state)
+target_compile_definitions(packingelf PRIVATE PACKINGELF_APP_VERSION="${PROJECT_VERSION}")
 target_link_libraries(packingelf PRIVATE
   Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Sql
 )

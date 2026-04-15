@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
   // On Windows: C:/Users/<user>/AppData/Local/Meridian/PackingElf/
   app.setOrganizationName(QStringLiteral("Meridian"));
   app.setApplicationName(QStringLiteral("PackingElf"));
+  app.setApplicationVersion(QStringLiteral(PACKINGELF_APP_VERSION));
   app.setWindowIcon(
       QIcon(QStringLiteral(":/qt/qml/PackingElf/ui/assets/images/app_icon.ico")));
 
