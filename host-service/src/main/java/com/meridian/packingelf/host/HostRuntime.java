@@ -6,12 +6,16 @@ import javafx.collections.ObservableList;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 
 final class HostRuntime implements AutoCloseable {
@@ -77,6 +81,11 @@ final class HostRuntime implements AutoCloseable {
     }
 
     String baseUrl() {
+        String lanAddress = lanIpv4Address();
+        if (!lanAddress.isBlank()) {
+            return "http://" + lanAddress + ":" + PORT;
+        }
+
         try {
             return "http://" + InetAddress.getLocalHost().getHostName() + ":" + PORT;
         } catch (UnknownHostException ex) {
@@ -89,6 +98,36 @@ final class HostRuntime implements AutoCloseable {
             return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException ex) {
             return "127.0.0.1";
+        }
+    }
+
+    private String lanIpv4Address() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            List<String> fallbackAddresses = new ArrayList<>();
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                NetworkInterface networkInterface = interfaces.nextElement();
+                if (!networkInterface.isUp() || networkInterface.isLoopback() || networkInterface.isVirtual()) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress address = addresses.nextElement();
+                    String hostAddress = address.getHostAddress();
+                    if (address.isLoopbackAddress() || hostAddress.contains(":")) {
+                        continue;
+                    }
+                    if (address.isSiteLocalAddress()) {
+                        return hostAddress;
+                    }
+                    fallbackAddresses.add(hostAddress);
+                }
+            }
+
+            return fallbackAddresses.isEmpty() ? "" : fallbackAddresses.get(0);
+        } catch (SocketException ex) {
+            return "";
         }
     }
 

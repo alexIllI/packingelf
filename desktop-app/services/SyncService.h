@@ -15,6 +15,7 @@ class SyncService : public QObject {
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(int pendingOutboxCount READ pendingOutboxCount NOTIFY statusChanged)
     Q_PROPERTY(QString hostBaseUrl READ hostBaseUrl NOTIFY statusChanged)
+    Q_PROPERTY(QString pairingToken READ pairingToken NOTIFY statusChanged)
 
 public:
     SyncService(std::shared_ptr<OrdersRepository> repo,
@@ -26,10 +27,14 @@ public:
     QString statusText() const { return m_statusText; }
     int pendingOutboxCount() const;
     QString hostBaseUrl() const;
+    QString pairingToken() const;
     OutboxStore* outbox() const { return m_outbox.get(); }
 
     Q_INVOKABLE void testConnection();
     Q_INVOKABLE void triggerSync();
+    Q_INVOKABLE bool saveConnectionSettings(const QString& hostBaseUrl,
+                                           const QString& pairingToken,
+                                           bool testAfterSave = true);
 
 signals:
     void statusChanged();

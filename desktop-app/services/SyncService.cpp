@@ -4,6 +4,7 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDebug>
 
 SyncService::SyncService(std::shared_ptr<OrdersRepository> repo,
                          std::unique_ptr<OutboxStore> outbox,
@@ -54,12 +55,50 @@ QString SyncService::hostBaseUrl() const
     return m_hostClient ? m_hostClient->baseUrl() : QString();
 }
 
+QString SyncService::pairingToken() const
+{
+    return m_repo ? m_repo->syncConfig().pairingToken : QString();
+}
+
+bool SyncService::saveConnectionSettings(const QString& hostBaseUrl,
+                                         const QString& pairingToken,
+                                         bool testAfterSave)
+{
+    if (!m_repo || !m_hostClient)
+        return false;
+
+    QString normalizedUrl = hostBaseUrl.trimmed();
+    if (normalizedUrl.endsWith(QLatin1Char('/')))
+        normalizedUrl.chop(1);
+
+    SyncConfig config = m_repo->syncConfig();
+    config.hostBaseUrl = normalizedUrl;
+    config.pairingToken = pairingToken.trimmed();
+
+    if (!m_repo->saveSyncConfig(config)) {
+        qWarning() << "[SyncService] Failed to save host connection settings";
+        return false;
+    }
+
+    m_hostClient->setBaseUrl(config.hostBaseUrl);
+    m_hostClient->setPairingToken(config.pairingToken);
+    m_statusText = QStringLiteral("Host connection settings updated");
+    qInfo() << "[SyncService] Updated host connection settings to" << config.hostBaseUrl;
+    emit statusChanged();
+
+    if (testAfterSave)
+        testConnection();
+
+    return true;
+}
+
 void SyncService::testConnection()
 {
     if (!m_hostClient)
         return;
 
     m_statusText = QStringLiteral("Testing host connection...");
+    qInfo() << "[SyncService] Triggering manual host connection test to" << m_hostClient->baseUrl();
     emit statusChanged();
     m_hostClient->testConnection();
 }
@@ -71,6 +110,7 @@ void SyncService::triggerSync()
 
     if (m_hostClient->baseUrl().isEmpty()) {
         m_statusText = QStringLiteral("Host sync is not configured");
+        qWarning() << "[SyncService]" << m_statusText;
         emit statusChanged();
         emit syncCycleFinished(false, m_statusText);
         return;
@@ -78,6 +118,7 @@ void SyncService::triggerSync()
 
     m_cycleInFlight = true;
     m_statusText = QStringLiteral("Pairing with host...");
+    qInfo() << "[SyncService] Starting sync cycle with host" << m_hostClient->baseUrl();
     emit statusChanged();
     m_hostClient->pair();
 }
@@ -188,6 +229,8 @@ void SyncService::finishCycle(const QString& message)
 {
     m_cycleInFlight = false;
     m_statusText = message;
+    qInfo() << "[SyncService] Sync cycle finished. online="
+            << (m_hostClient && m_hostClient->online()) << "message=" << message;
     emit statusChanged();
     emit syncCycleFinished(m_hostClient && m_hostClient->online(), message);
 }
