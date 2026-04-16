@@ -19,62 +19,27 @@
 - 不要先用 `127.0.0.1`，那只代表目前這台電腦自己
 - 如果測試失敗，請先確認 `Host` 電腦的 Windows Firewall 已放行 TCP `48080`
 
-## 常用開發指令
+### 如何在 host 電腦放行 Windows Firewall 的入站 TCP 48080
 
-### 列出 CMake presets
+最直接的做法:
 
-```powershell
-cd desktop-app
-cmake --list-presets
+在 host 電腦用系統管理員權限打開 PowerShell，執行：
+
+```bash
+New-NetFirewallRule -DisplayName "PackingElf Host 48080" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 48080
 ```
 
-### Debug build
+或者透過 GUI 的做法：
 
-```powershell
-cd desktop-app
-cmake --preset msvc-debug
-cmake --build --preset msvc-debug
-```
-
-### Release build
-
-```powershell
-cd desktop-app
-cmake --preset msvc-release
-cmake --build --preset msvc-release
-```
-
-### 執行桌面 app
-
-```powershell
-# Debug
-.\desktop-app\build\msvc-debug\Debug\packingelf.exe
-
-# Release
-.\desktop-app\build\msvc-release\Release\packingelf.exe
-```
-
-## 打包安裝程式
-
-```powershell
-# 只產生 portable client / host
-.\scripts\build-installer.ps1 -PortableOnly
-
-# 產生正式 Windows installer
-.\scripts\build-installer.ps1
-
-# 如果要強制使用 Qt Installer Framework
-.\scripts\build-installer.ps1 -PreferIfw
-```
-
-安裝程式輸出：
-
-```text
-dist/PackingElf-Setup-1.0.3.exe
-```
-
-## 建議發佈方式
-
-- 把 installer `.exe` 上傳到 GitHub Releases
-- 給使用者 GitHub Releases 的下載連結
-- 使用者只需要下載並執行 installer，不需要 Git 或任何開發工具
+1. 在 host 電腦按 Win，搜尋 Windows Defender 防火牆 with Advanced Security
+2. 打開後，左邊點 Inbound Rules
+3. 右邊點 New Rule...
+4. 選 Port
+5. 選 TCP
+6. Specific local ports 輸入： `48080`
+7. 下一步選 Allow the connection
+8. Domain / Private / Public
+   - 如果是你自己的辦公室或家用網路，至少勾 Private
+   - 如果不確定，可以三個都勾，但會比較寬鬆
+9. 名稱輸入：`PackingElf Host 48080`
+10. 完成
