@@ -2,7 +2,7 @@
 #  CMake configuration for PackingElf desktop application
 #  ─────────────────────────────────────────────────────────────
 cmake_minimum_required(VERSION 3.25)
-project(PackingElf VERSION 1.0.3 LANGUAGES CXX)
+project(PackingElf VERSION 1.0.4 LANGUAGES CXX)
 
 # Allow C++ standard to be overridden via -DPACKINGELF_CXX_STANDARD=17
 if(NOT DEFINED PACKINGELF_CXX_STANDARD)
