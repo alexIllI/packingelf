@@ -125,6 +125,87 @@ class MyAcgScraper:
         self._last_dialog = dialog.message
         asyncio.ensure_future(dialog.accept())
 
+    async def _wait_for_print_page_ready(self, print_page: Page) -> None:
+        """Wait until the print tab has enough content to print reliably."""
+        await print_page.wait_for_load_state("domcontentloaded", timeout=TIMEOUT_LONG)
+        log("  Print page DOM loaded.")
+
+        try:
+            await print_page.wait_for_load_state("networkidle", timeout=TIMEOUT_NORMAL)
+            log("  Print page network idle reached.")
+        except Exception as e:
+            log(f"  Print page network idle not reached: {e}")
+
+        await print_page.wait_for_function(
+            """
+            () => {
+                const body = document.body;
+                if (!body) {
+                    return false;
+                }
+
+                const text = (body.innerText || "").trim();
+                const hasEnoughText = text.length >= 20;
+                const hasStructuredContent =
+                    body.querySelectorAll("table, tr, td, img, svg, canvas, iframe").length > 0;
+
+                if (!hasEnoughText && !hasStructuredContent) {
+                    return false;
+                }
+
+                const images = Array.from(document.images || []);
+                return images.every((img) => img.complete);
+            }
+            """,
+            timeout=20_000,
+        )
+        log("  Print page content detected.")
+
+        await print_page.evaluate(
+            """
+            async () => {
+                if (document.fonts && document.fonts.ready) {
+                    try {
+                        await document.fonts.ready;
+                    } catch (_) {
+                    }
+                }
+
+                await new Promise((resolve) => requestAnimationFrame(resolve));
+                await new Promise((resolve) => requestAnimationFrame(resolve));
+            }
+            """
+        )
+        log("  Print page render settled.")
+
+    async def _trigger_print_and_wait(self, print_page: Page) -> None:
+        """Trigger print and wait long enough for the browser to spool the job."""
+        result = await print_page.evaluate(
+            """
+            () => new Promise((resolve) => {
+                let finished = false;
+                const complete = (reason) => {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    resolve(reason);
+                };
+
+                window.addEventListener("afterprint", () => complete("afterprint"), { once: true });
+                setTimeout(() => complete("timeout"), 5000);
+
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        window.print();
+                        setTimeout(() => complete("post-print-delay"), 1500);
+                    });
+                });
+            })
+            """
+        )
+        log(f"  window.print() finished with signal: {result}")
+
     # ── Login ─────────────────────────────────────────────────────
 
     async def login(self, account: str, password: str) -> Optional[ScrapeResult]:
@@ -599,18 +680,30 @@ class MyAcgScraper:
 
         # Wait for the print page DOM to be ready before calling window.print()
         try:
-            await print_page.wait_for_load_state("domcontentloaded", timeout=TIMEOUT_LONG)
-            log("  Print page DOM loaded.")
+            await self._wait_for_print_page_ready(print_page)
         except Exception as e:
-            log(f"  Warning - print page load slow: {e}")
+            return ScrapeResult(
+                ScraperStatus.PRINT_ERROR,
+                buyer_name=buyer_name,
+                order_date=order_date,
+                total_amount=total_amount,
+                using_coupon=using_coupon,
+                message=f"Print page did not become ready: {e}",
+            )
 
         # Trigger print dialog — same method as old Selenium execute_script("window.print()")
         # Requires browser default printer to be a physical printer (not PDF).
         try:
-            await print_page.evaluate("() => window.print()")
-            log("  window.print() called.")
+            await self._trigger_print_and_wait(print_page)
         except Exception as e:
-            log(f"  Warning - window.print() error (non-fatal): {e}")
+            return ScrapeResult(
+                ScraperStatus.PRINT_ERROR,
+                buyer_name=buyer_name,
+                order_date=order_date,
+                total_amount=total_amount,
+                using_coupon=using_coupon,
+                message=f"window.print() failed: {e}",
+            )
 
         # Close print tab and return focus to main seller dashboard tab
         try:
