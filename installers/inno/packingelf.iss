@@ -1,6 +1,6 @@
 #define MyAppName "包貨小精靈"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.4"
+  #define MyAppVersion "1.0.5"
 #endif
 #ifndef RepoRoot
   #error RepoRoot must be provided to ISCC.
