@@ -421,21 +421,55 @@ class MyAcgScraper:
             return ScrapeResult(ScraperStatus.ERROR,
                                 message=f"Search button not found: {e}")
 
-        # Wait for results to appear — either the order table or no-data message
+        # Wait for the requested order number to appear before checking no-data.
         try:
-            await self._page.wait_for_selector(
-                '#wrap .orderTable, .search_no_data2',
-                timeout=TIMEOUT_NORMAL
+            await self._page.wait_for_function(
+                """
+                orderNumber => {
+                    const visible = (el) => {
+                        const style = window.getComputedStyle(el);
+                        return style && style.visibility !== "hidden" &&
+                               style.display !== "none" &&
+                               el.getClientRects().length > 0;
+                    };
+
+                    const hasOrder = Array.from(
+                        document.querySelectorAll(".orderTable span.t_orange_new")
+                    ).some((el) => visible(el) && (el.textContent || "").trim() === orderNumber);
+
+                    return hasOrder;
+                }
+                """,
+                order_number,
+                timeout=TIMEOUT_NORMAL,
             )
         except Exception as e:
-            log(f"    Warning - results selector timed out: {e}")
+            log(f"    Warning - search result did not settle: {e}")
 
         # ── 2. Check: order exists? ───────────────────────────────
         # Real element: <div class="search_no_data2"> ... 您沒有訂單 ...
         log("  Step 2/9 - Checking if order exists...")
         try:
-            no_data = self._page.locator('.search_no_data2')
-            if await no_data.is_visible(timeout=TIMEOUT_SHORT):
+            has_current_order = await self._page.evaluate(
+                """
+                orderNumber => Array.from(
+                    document.querySelectorAll(".orderTable span.t_orange_new")
+                ).some((el) => (el.textContent || "").trim() === orderNumber)
+                """,
+                order_number,
+            )
+            no_data_visible = await self._page.evaluate(
+                """
+                () => Array.from(document.querySelectorAll(".search_no_data2")).some((el) => {
+                    const style = window.getComputedStyle(el);
+                    return style && style.visibility !== "hidden" &&
+                           style.display !== "none" &&
+                           el.getClientRects().length > 0 &&
+                           (el.innerText || "").trim().length > 0;
+                })
+                """
+            )
+            if no_data_visible and not has_current_order:
                 log("    -> ORDER_NOT_FOUND (.search_no_data2 present)")
                 return ScrapeResult(ScraperStatus.ORDER_NOT_FOUND)
         except: pass
@@ -446,9 +480,18 @@ class MyAcgScraper:
         log("  Step 3/9 - Checking if order is canceled...")
         try:
             canceled = self._page.locator(
+                'xpath=//span[contains(concat(" ", normalize-space(@class), " "), " t_red ") '
+                'and contains(normalize-space(.), "\u5df2\u53d6\u6d88")]'
+            )
+            if final_status is None and await canceled.is_visible(timeout=TIMEOUT_SHORT):
+                log("    -> ORDER_CANCELED")
+                final_status = ScraperStatus.ORDER_CANCELED
+        except: pass
+        try:
+            canceled = self._page.locator(
                 'xpath=//span[@class="t_red" and contains(normalize-space(text()),"取消原因")]'
             )
-            if await canceled.is_visible(timeout=TIMEOUT_SHORT):
+            if final_status is None and await canceled.is_visible(timeout=TIMEOUT_SHORT):
                 log("    -> ORDER_CANCELED")
                 final_status = ScraperStatus.ORDER_CANCELED
         except: pass
@@ -457,7 +500,9 @@ class MyAcgScraper:
         # Real element: <span class="t_red" data-state="close">關轉中，等待重選門市</span>
         log("  Step 4/9 - Checking if order is closed...")
         try:
-            closed = self._page.locator('[data-state="close"]')
+            closed = self._page.locator(
+                'xpath=//span[@data-state="close" and contains(normalize-space(.), "\u95dc\u8f49")]'
+            )
             if final_status is None and await closed.is_visible(timeout=TIMEOUT_SHORT):
                 log("    -> STORE_CLOSED (data-state=close)")
                 final_status = ScraperStatus.STORE_CLOSED
