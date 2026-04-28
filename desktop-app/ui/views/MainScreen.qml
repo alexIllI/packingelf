@@ -91,7 +91,7 @@ RowLayout {
             Text {
                 anchors.centerIn: parent
                 text: "v" + Qt.application.version
-                color: Theme.dimTextColor
+                color: Theme.dimTextCol
                 font.pixelSize: 12
             }
         }

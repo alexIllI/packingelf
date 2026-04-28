@@ -151,14 +151,17 @@ Popup {
         }
     }
 
-    Keys.onEscapePressed: event => {
-        if (root.showCancelButton)
-            root.cancel();
-        else {
-            root.close();
-            root.clearCallbacks();
+    Shortcut {
+        sequence: StandardKey.Cancel
+        enabled: root.opened
+        onActivated: {
+            if (root.showCancelButton)
+                root.cancel();
+            else {
+                root.close();
+                root.clearCallbacks();
+            }
         }
-        event.accepted = true;
     }
 
     onOpened: confirmButton.forceActiveFocus()
